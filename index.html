@@ -88,14 +88,14 @@ const GND=185, GRAV=700, JMPV=-290, PKX=60;
 
 // ============ LEVEL CONFIGS ============
 const LVLS=[null,
-  {name:'La Balade en For\u00eat',dist:6000,spd0:80,maxSpd:140,accel:0.008,gap:260,
+  {name:'La Balade en For\u00eat',dist:6000,spd0:80,maxSpd:130,accel:0.008,gap:280,
    intro:['Jour 1 \u00e0 Luosto.','La neige est \u00e9paisse, les sapins immenses,','et Joy a d\u00e9cid\u00e9 que marcher,',"c'est pour les chiens ordinaires."],
    sign:'MINE \u2192',hasJoy:true,katSkis:true,bg:'forest',
    obs:[{n:'branch',w:26,h:10,wt:4},{n:'mound',w:20,h:16,wt:3},{n:'reindeer',w:22,h:28,wt:1}],
    colPts:10,
    vicTitle:'For\u00eat travers\u00e9e !',
    vicText:['La balade touche \u00e0 sa fin.',"Au loin, l'entr\u00e9e de la mine d'am\u00e9thyste...",'Joy dort d\u00e9j\u00e0 dans sa luge.']},
-  {name:"La Mine d'Am\u00e9thyste",dist:5500,spd0:85,maxSpd:135,accel:0.007,gap:270,
+  {name:"La Mine d'Am\u00e9thyste",dist:5500,spd0:85,maxSpd:140,accel:0.007,gap:260,
    intro:["On nous a promis des tr\u00e9sors.","On nous a donn\u00e9 une passoire.","On aurait d\u00fb se m\u00e9fier."],
    sign:null,hasJoy:false,katSkis:false,bg:'mine',
    obs:[{n:'rocks',w:20,h:14,wt:4},{n:'beam',w:28,h:8,wt:3},{n:'hole',w:16,h:6,wt:2}],
@@ -103,21 +103,21 @@ const LVLS=[null,
    special:'confiscation',
    vicTitle:'Inspection du butin',
    vicText:[]},
-  {name:'Ski de Fond : La Revanche',dist:6500,spd0:85,maxSpd:145,accel:0.007,gap:250,
+  {name:'Ski de Fond : La Revanche',dist:6500,spd0:90,maxSpd:150,accel:0.007,gap:250,
    intro:['20 km de ski.','Plusieurs chutes.','Z\u00e9ro regret.'],
    sign:null,hasJoy:false,katSkis:true,bg:'forest',
    obs:[{n:'bump',w:18,h:12,wt:4},{n:'branch',w:26,h:10,wt:3},{n:'skier',w:16,h:30,wt:1}],
    colPts:10,falls:3,
    vicTitle:'20 km !',
    vicText:['Distance : 20 km \u2713','Les courbatures arrivent demain.']},
-  {name:'Les Huskies',dist:5000,spd0:95,maxSpd:155,accel:0.009,gap:280,
+  {name:'Les Huskies',dist:5000,spd0:100,maxSpd:160,accel:0.009,gap:240,
    intro:["Personne n'avait pr\u00e9venu Kat","qu'il y aurait des b\u00e9b\u00e9s huskies.","Personne n'\u00e9tait pr\u00e9par\u00e9."],
-   sign:null,hasJoy:false,katSkis:false,bg:'husky',
+   sign:null,hasJoy:false,katSkis:false,bg:'forest',
    obs:[{n:'mound',w:20,h:16,wt:4},{n:'huskyrun',w:18,h:20,wt:2}],
    colPts:25,colName:'babyhusky',
    vicTitle:'Fin de la balade',
    vicText:["Tentatives d'adoption : 3.","Adoptions r\u00e9ussies : 0.","Coeur bris\u00e9 : 1."]},
-  {name:'Le Bonhomme de Neige',dist:4500,spd0:75,maxSpd:120,accel:0.006,gap:240,
+  {name:'Le Bonhomme de Neige',dist:4500,spd0:80,maxSpd:130,accel:0.006,gap:260,
    intro:["Apr\u00e8s tant d'aventures,","il \u00e9tait temps de laisser","une trace artistique."],
    sign:null,hasJoy:true,katSkis:false,bg:'forest',
    obs:[{n:'mound',w:20,h:16,wt:4},{n:'branch',w:26,h:10,wt:3}],
@@ -135,6 +135,7 @@ const LVLS=[null,
 // ============ STATE ============
 let st='TITLE',score=0,dist=0,spd=80,dt=0,lastT=0,time=0,canIn=true;
 let lvl=1,totalScore=0;
+let fallsLeft=0,invT=0;
 let best=+(localStorage.getItem('luosto_best')||0);
 let savedLvl=+(localStorage.getItem('luosto_lvl')||1);
 
@@ -220,6 +221,7 @@ function startLevel(n){
   kat={x:PKX,y:GND-48,w:32,h:48,vy:0,gnd:true,jc:0,fr:0,ft:0};
   joy={tf:0,tt:0,wouf:false,wt:0,wcd:5+Math.random()*10,y:GND-16};
   jyBuf=[];obs=[];cols=[];ftxts=[];
+  fallsLeft=L.falls||0;invT=0;
   nxObs=300+Math.random()*80;nxCol=150+Math.random()*80;
   signOn=false;signX=W+20;bgO=[0,0,0];
   canIn=false;setTimeout(()=>canIn=true,400);
@@ -315,12 +317,24 @@ function update(){
   for(const c of cols)c.x-=spd*dt;
   cols=cols.filter(c=>c.x>-20);
 
+  // Invincibility timer
+  if(invT>0)invT-=dt;
+
   // Collision obstacles (reduced hitboxes)
-  if(!L.noGameOver){
+  if(!L.noGameOver&&invT<=0){
     for(const o of obs){
       const px=kat.x+kat.w*0.15,py=kat.y+kat.h*0.15,pw=kat.w*0.7,ph=kat.h*0.7;
       const ox=o.x+o.w*0.2,oy=o.y+o.h*0.2,ow=o.w*0.6,oh=o.h*0.6;
-      if(px<ox+ow&&px+pw>ox&&py<oy+oh&&py+ph>oy){doGO();return;}
+      if(px<ox+ow&&px+pw>ox&&py<oy+oh&&py+ph>oy){
+        if(L.falls&&fallsLeft>0){
+          fallsLeft--;sndHit();invT=2;
+          const msgs=['Ca fait partie de l\'apprentissage !','Le sol est confortable, en fait.','OK, derniere chance...'];
+          const mi=L.falls-fallsLeft-1;
+          ftxts.push({x:kat.x,y:kat.y-10,t:msgs[Math.min(mi,msgs.length-1)],life:1.5});
+          obs.splice(obs.indexOf(o),1);
+          break;
+        }else{doGO();return;}
+      }
     }
   }
 
@@ -349,67 +363,55 @@ function update(){
 // ============ SPRITE DRAWING ============
 
 function drawKat(x,y,fr,jmp){
-  // === FRONT-FACING ===
+  const L=LVLS[lvl]||{katSkis:true,bg:'forest'};
+  const dark=L.bg==='mine'||lvl===4;
+  const bc=dark?'#333':'#4488CC';
+  const bs=dark?'#222':'#3B7ABB';
+  const be=dark?'#2A2A2A':'#3A70AA';
 
-  // Skis
-  X.fillStyle='#CC3333';
-  X.fillRect(x+3,y+44,13,3);X.fillRect(x+17,y+44,13,3);
-  X.fillStyle='#AA2222';
-  X.fillRect(x+1,y+43,4,2);X.fillRect(x+28,y+43,4,2);
-
-  // Legs
-  X.fillStyle='#3D3D6B';
-  X.fillRect(x+10,y+34,5,10);X.fillRect(x+17,y+34,5,10);
-
-  // Body
-  X.fillStyle='#4488CC';
-  X.fillRect(x+8,y+18,16,16);
-  X.fillStyle='#3B7ABB';
-  X.fillRect(x+8,y+18,2,16);X.fillRect(x+22,y+18,2,16);
-  X.fillStyle='#3A70AA';
-  X.fillRect(x+15,y+19,2,14);
-
-  // Arms + poles
-  const af=jmp?0:(fr===1?-3:(fr===2?3:0));
-  X.fillStyle='#4488CC';
-  if(jmp){
-    X.fillRect(x+4,y+14,4,10);X.fillRect(x+24,y+14,4,10);
-    X.fillStyle='#777';X.fillRect(x+5,y+8,1,22);X.fillRect(x+26,y+8,1,22);
-    X.fillStyle='#DD4444';X.fillRect(x+4,y+13,4,3);X.fillRect(x+24,y+13,4,3);
+  if(L.katSkis){
+    X.fillStyle='#CC3333';
+    X.fillRect(x+3,y+44,13,3);X.fillRect(x+17,y+44,13,3);
+    X.fillStyle='#AA2222';
+    X.fillRect(x+1,y+43,4,2);X.fillRect(x+28,y+43,4,2);
   }else{
-    X.fillRect(x+4,y+20-af,4,10);X.fillRect(x+24,y+20+af,4,10);
-    X.fillStyle='#777';
-    X.fillRect(x+5,y+18-af,1,22+af);X.fillRect(x+26,y+18+af,1,22-af);
-    X.fillStyle='#888';
-    X.fillRect(x+4,y+38,3,1);X.fillRect(x+25,y+38,3,1);
-    X.fillStyle='#DD4444';
-    X.fillRect(x+4,y+28-af,4,3);X.fillRect(x+24,y+28+af,4,3);
+    X.fillStyle='#4A3020';
+    X.fillRect(x+9,y+43,6,4);X.fillRect(x+17,y+43,6,4);
   }
-
-  // Face
+  X.fillStyle='#3D3D6B';
+  if(!L.katSkis&&!jmp){
+    const lf=fr===1?2:(fr===2?-2:0);
+    X.fillRect(x+10,y+34+lf,5,9-Math.abs(lf));X.fillRect(x+17,y+34-lf,5,9-Math.abs(lf));
+  }else{X.fillRect(x+10,y+34,5,10);X.fillRect(x+17,y+34,5,10);}
+  X.fillStyle=bc;X.fillRect(x+8,y+18,16,16);
+  X.fillStyle=bs;X.fillRect(x+8,y+18,2,16);X.fillRect(x+22,y+18,2,16);
+  X.fillStyle=be;X.fillRect(x+15,y+19,2,14);
+  const af=jmp?0:(fr===1?-3:(fr===2?3:0));
+  X.fillStyle=bc;
+  if(L.katSkis){
+    if(jmp){
+      X.fillRect(x+4,y+14,4,10);X.fillRect(x+24,y+14,4,10);
+      X.fillStyle='#777';X.fillRect(x+5,y+8,1,22);X.fillRect(x+26,y+8,1,22);
+      X.fillStyle='#DD4444';X.fillRect(x+4,y+13,4,3);X.fillRect(x+24,y+13,4,3);
+    }else{
+      X.fillRect(x+4,y+20-af,4,10);X.fillRect(x+24,y+20+af,4,10);
+      X.fillStyle='#777';X.fillRect(x+5,y+18-af,1,22+af);X.fillRect(x+26,y+18+af,1,22-af);
+      X.fillStyle='#888';X.fillRect(x+4,y+38,3,1);X.fillRect(x+25,y+38,3,1);
+      X.fillStyle='#DD4444';X.fillRect(x+4,y+28-af,4,3);X.fillRect(x+24,y+28+af,4,3);
+    }
+  }else{
+    if(jmp){X.fillRect(x+4,y+16,4,8);X.fillRect(x+24,y+16,4,8);}
+    else{X.fillRect(x+4,y+20-af,4,10);X.fillRect(x+24,y+20+af,4,10);}
+    X.fillStyle='#DD4444';
+    X.fillRect(x+4,y+(jmp?15:28-af),4,3);X.fillRect(x+24,y+(jmp?15:28+af),4,3);
+  }
   X.fillStyle='#FFDDAA';X.fillRect(x+10,y+8,12,10);
-
-  // Eyes
-  X.fillStyle='#334455';
-  X.fillRect(x+12,y+11,2,2);X.fillRect(x+18,y+11,2,2);
-  X.fillStyle='#FFF';
-  X.fillRect(x+12,y+11,1,1);X.fillRect(x+18,y+11,1,1);
-
-  // Cheeks
-  X.fillStyle='#FFAAAA';
-  X.fillRect(x+10,y+14,2,1);X.fillRect(x+20,y+14,2,1);
-
-  // Smile
+  X.fillStyle='#334455';X.fillRect(x+12,y+11,2,2);X.fillRect(x+18,y+11,2,2);
+  X.fillStyle='#FFF';X.fillRect(x+12,y+11,1,1);X.fillRect(x+18,y+11,1,1);
+  X.fillStyle='#FFAAAA';X.fillRect(x+10,y+14,2,1);X.fillRect(x+20,y+14,2,1);
   X.fillStyle='#CC8877';X.fillRect(x+14,y+15,4,1);
-
-  // Hair
-  X.fillStyle='#E8B830';
-  X.fillRect(x+7,y+8,3,12);X.fillRect(x+22,y+8,3,12);
-  X.fillRect(x+9,y+7,14,2);
-
-  // Bonnet
-  X.fillStyle='#2255AA';
-  X.fillRect(x+9,y+1,14,7);X.fillRect(x+11,y,10,2);
+  X.fillStyle='#E8B830';X.fillRect(x+7,y+8,3,12);X.fillRect(x+22,y+8,3,12);X.fillRect(x+9,y+7,14,2);
+  X.fillStyle='#2255AA';X.fillRect(x+9,y+1,14,7);X.fillRect(x+11,y,10,2);
   X.fillStyle='#3366CC';X.fillRect(x+10,y+2,12,4);
   X.fillStyle='#DDDDEE';X.fillRect(x+8,y+7,16,2);
   }
@@ -775,6 +777,22 @@ function drawGround(){
     for(let x=-(off%60);x<W;x+=30){
       X.fillRect(x,GND+8,10,2);X.fillRect(x+15,GND+16,6,2);
     }
+    // Fence posts for husky level
+    if(lvl===4){
+      const foff=bgO[1]|0;
+      for(let fx=-(foff%60);fx<W+60;fx+=60){
+        // Vertical post
+        X.fillStyle='#7B5A3A';X.fillRect(fx,GND-22,4,24);
+        // Post cap
+        X.fillStyle='#8B6A4A';X.fillRect(fx-1,GND-24,6,3);
+      }
+      // Horizontal rails
+      X.fillStyle='#6B4A2A';
+      for(let fx=-(foff%60);fx<W+60;fx+=60){
+        X.fillRect(fx+2,GND-16,58,2);
+        X.fillRect(fx+2,GND-8,58,2);
+      }
+    }
   }
 }
 
@@ -884,6 +902,23 @@ function drawHUD(){
   X.textAlign='right';X.fillText('Score : '+score,W-5,12);
   X.fillStyle='rgba(255,255,255,0.2)';X.fillRect(5,17,80,3);
   X.fillStyle='rgba(255,255,255,0.6)';X.fillRect(5,17,Math.min(80,80*(dist/L.dist)),3);
+  // Falls hearts (level 3)
+  if(L.falls){
+    for(let i=0;i<L.falls;i++){
+      const hx=W/2-L.falls*6+i*12,hy=6;
+      if(i<fallsLeft){
+        X.fillStyle='#FF4466';
+        X.fillRect(hx,hy,3,2);X.fillRect(hx+4,hy,3,2);
+        X.fillRect(hx-1,hy+2,4,2);X.fillRect(hx+4,hy+2,4,2);
+        X.fillRect(hx,hy+4,6,2);X.fillRect(hx+1,hy+6,4,1);X.fillRect(hx+2,hy+7,2,1);
+      }else{
+        X.fillStyle='#555';
+        X.fillRect(hx,hy,3,2);X.fillRect(hx+4,hy,3,2);
+        X.fillRect(hx-1,hy+2,4,2);X.fillRect(hx+4,hy+2,4,2);
+        X.fillRect(hx,hy+4,6,2);X.fillRect(hx+1,hy+6,4,1);X.fillRect(hx+2,hy+7,2,1);
+      }
+    }
+  }
 }
 
 const GOMSG=[
@@ -935,6 +970,31 @@ function drawConfiscation(){
   X.fillText('Inspection du butin',W/2,30);
   // Kat disappointed
   drawKatSit(W/2-16,55);
+  // Mine inspector (voleuse)
+  {const ix=W/2+40,iy=55;
+  // Hard hat (yellow)
+  X.fillStyle='#DDAA00';X.fillRect(ix+3,iy+1,10,5);X.fillRect(ix+1,iy+5,14,2);
+  X.fillStyle='#EEBB22';X.fillRect(ix+5,iy+2,6,3);
+  // Face
+  X.fillStyle='#FFDDAA';X.fillRect(ix+4,iy+7,8,6);
+  // Eyes
+  X.fillStyle='#334455';X.fillRect(ix+5,iy+9,2,1);X.fillRect(ix+9,iy+9,2,1);
+  // Stern mouth
+  X.fillStyle='#AA7766';X.fillRect(ix+6,iy+12,4,1);
+  // Gray outfit
+  X.fillStyle='#777';X.fillRect(ix+3,iy+13,10,12);
+  X.fillStyle='#888';X.fillRect(ix+4,iy+14,8,4);
+  // Legs
+  X.fillStyle='#555';X.fillRect(ix+4,iy+25,4,8);X.fillRect(ix+9,iy+25,4,8);
+  // Boots
+  X.fillStyle='#333';X.fillRect(ix+3,iy+32,5,3);X.fillRect(ix+9,iy+32,5,3);
+  // Clipboard (in right hand)
+  X.fillStyle='#AA8855';X.fillRect(ix+13,iy+15,6,8);
+  X.fillStyle='#EEE';X.fillRect(ix+14,iy+16,4,6);
+  // Lines on clipboard
+  X.fillStyle='#888';X.fillRect(ix+15,iy+17,2,1);X.fillRect(ix+15,iy+19,2,1);
+  // Arm holding clipboard
+  X.fillStyle='#777';X.fillRect(ix+11,iy+15,3,4);}
   const kept=score/10;
   X.fillStyle='#9944CC';X.font='bold 9px monospace';
   X.fillText('Am\u00e9thystes restantes : '+kept,W/2,120);
@@ -1005,8 +1065,10 @@ function draw(){
   if(signOn&&L.sign)drawSign(signX);
   // Joy
   if(L.hasJoy)drawJoySled(kat.x-36,joy.y,joy.tf,joy.wouf);
-  // Kat
-  drawKat(kat.x,kat.y,kat.fr,!kat.gnd);
+  // Kat (blink during invincibility)
+  if(invT<=0||(time*10|0)%2===0){
+    drawKat(kat.x,kat.y,kat.fr,!kat.gnd);
+  }
 
   if(L.bg!=='mine')drawSnow();
 
