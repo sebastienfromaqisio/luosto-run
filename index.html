@@ -198,9 +198,20 @@ document.addEventListener('keydown',e=>{
   if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();onPress();}
 });
 const tap=document.getElementById('tap');
-tap.addEventListener('touchstart',e=>{e.preventDefault();e.stopPropagation();onPress();},{passive:false});
+tap.addEventListener('touchstart',e=>{
+  e.preventDefault();e.stopPropagation();
+  // iOS audio unlock: must happen directly in touch handler
+  if(!actx){try{actx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}}
+  if(actx&&actx.state==='suspended')actx.resume();
+  if(actx&&!audioUnlocked){
+    const o=actx.createOscillator(),g=actx.createGain();
+    g.gain.value=0.001;o.connect(g);g.connect(actx.destination);
+    o.start();o.stop(actx.currentTime+0.01);audioUnlocked=true;
+  }
+  onPress();
+},{passive:false});
 tap.addEventListener('touchend',e=>{e.preventDefault();},{passive:false});
-tap.addEventListener('mousedown',e=>{e.preventDefault();onPress();});
+tap.addEventListener('mousedown',e=>{e.preventDefault();initAudio();onPress();});
 
 // ============ GAME LIFECYCLE ============
 function startLevel(n){
