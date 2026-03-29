@@ -52,16 +52,32 @@ if(window.visualViewport)window.visualViewport.addEventListener('resize',resize)
 resize();
 
 // ============ SOUND (Web Audio) ============
-let actx=null,sndOn=true;
-function initAudio(){if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();}
+let actx=null,sndOn=true,audioUnlocked=false;
+function initAudio(){
+  if(actx)return;
+  try{
+    actx=new(window.AudioContext||window.webkitAudioContext)();
+    // Unlock iOS audio with silent buffer
+    const buf=actx.createBuffer(1,1,22050);
+    const src=actx.createBufferSource();
+    src.buffer=buf;src.connect(actx.destination);src.start(0);
+    if(actx.state==='suspended')actx.resume();
+    audioUnlocked=true;
+  }catch(e){}
+}
 function beep(freq,dur,type,vol){
-  if(!sndOn||!actx)return;
-  try{if(actx.state==='suspended')actx.resume();
-  const o=actx.createOscillator(),g=actx.createGain();
-  o.type=type||'square';o.frequency.value=freq;g.gain.value=vol||0.08;
-  o.connect(g);g.connect(actx.destination);o.start();
-  g.gain.exponentialRampToValueAtTime(0.001,actx.currentTime+dur);
-  o.stop(actx.currentTime+dur);}catch(e){}}
+  if(!sndOn||!actx||!audioUnlocked)return;
+  try{
+    if(actx.state==='suspended')actx.resume();
+    const t=actx.currentTime;
+    const o=actx.createOscillator(),g=actx.createGain();
+    o.type=type||'square';o.frequency.value=freq;
+    g.gain.setValueAtTime(vol||0.08,t);
+    g.gain.linearRampToValueAtTime(0,t+dur);
+    o.connect(g);g.connect(actx.destination);
+    o.start(t);o.stop(t+dur);
+  }catch(e){}
+}
 function sndJump(){beep(440,0.07,'square',0.06);}
 function sndCollect(){beep(880,0.1,'sine',0.08);setTimeout(()=>beep(1100,0.08,'sine',0.06),50);}
 function sndHit(){beep(200,0.15,'sawtooth',0.08);setTimeout(()=>beep(150,0.2,'sawtooth',0.06),100);}
