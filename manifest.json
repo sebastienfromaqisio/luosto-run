@@ -1,0 +1,10 @@
+{
+  "name": "Luosto Run - Édition Brain-Rot",
+  "short_name": "Luosto Run",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#0a1628",
+  "theme_color": "#0a1628",
+  "icons": []
+}
