@@ -58,7 +58,7 @@ let st='TITLE',score=0,dist=0,spd=SPD0,dt=0,lastT=0,time=0,canIn=true;
 let best=+(localStorage.getItem('luosto_best')||0);
 
 // Player
-let kat={x:PKX,y:GND-48,w:32,h:48,vy:0,gnd:true,fr:0,ft:0};
+let kat={x:PKX,y:GND-48,w:32,h:48,vy:0,gnd:true,jc:0,fr:0,ft:0};
 // Joy
 let joy={tf:0,tt:0,wouf:false,wt:0,wcd:5+Math.random()*10,y:GND-16};
 let jyBuf=[];
@@ -104,7 +104,7 @@ function onPress(){
   if(st==='INTRO'){st='PLAY';return;}
   if(st==='GAMEOVER'){startGame();return;}
   if(st==='VICTORY'){startGame();return;}
-  if(st==='PLAY'&&kat.gnd){kat.vy=JMPV;kat.gnd=false;}
+  if(st==='PLAY'&&kat.jc<2){kat.vy=JMPV;kat.gnd=false;kat.jc++;}
 }
 document.addEventListener('keydown',e=>{
   if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();onPress();}
@@ -115,7 +115,7 @@ document.addEventListener('mousedown',onPress);
 // ============ GAME LIFECYCLE ============
 function startGame(){
   st='INTRO';score=0;dist=0;spd=SPD0;
-  kat={x:PKX,y:GND-48,w:32,h:48,vy:0,gnd:true,fr:0,ft:0};
+  kat={x:PKX,y:GND-48,w:32,h:48,vy:0,gnd:true,jc:0,fr:0,ft:0};
   joy={tf:0,tt:0,wouf:false,wt:0,wcd:5+Math.random()*10,y:GND-16};
   jyBuf=[];obs=[];cols=[];ftxts=[];
   nxObs=300+Math.random()*80;nxCol=150+Math.random()*80;
@@ -163,7 +163,7 @@ function update(){
   if(!kat.gnd){
     kat.vy+=GRAV*dt;
     kat.y+=kat.vy*dt;
-    if(kat.y>=GND-kat.h){kat.y=GND-kat.h;kat.vy=0;kat.gnd=true;}
+    if(kat.y>=GND-kat.h){kat.y=GND-kat.h;kat.vy=0;kat.gnd=true;kat.jc=0;}
   }
   kat.ft+=dt;
   if(kat.ft>0.15){kat.ft=0;kat.fr=(kat.fr+1)%3;}
