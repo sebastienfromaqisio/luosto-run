@@ -2,11 +2,13 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Luosto Run - Édition Brain-Rot</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{background:#0a1628;width:100%;height:100%;overflow:hidden;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+html,body{background:#0a1628;width:100%;height:100%;overflow:hidden;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;position:fixed;overscroll-behavior:none}
 body{display:flex;justify-content:center;align-items:center}
 canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
 </style>
@@ -19,13 +21,32 @@ const C=document.getElementById('g'),X=C.getContext('2d');
 const W=400,H=225;
 C.width=W;C.height=H;
 
-// Resize
+// Resize (auto-rotate in portrait)
 function resize(){
-  const s=Math.min(window.innerWidth/W,window.innerHeight/H);
-  C.style.width=(W*s|0)+'px';
-  C.style.height=(H*s|0)+'px';
+  const vw=window.innerWidth,vh=window.innerHeight;
+  const portrait=vh>vw;
+  if(portrait){
+    // Rotate canvas to landscape in portrait mode
+    const s=Math.min(vw/H,vh/W);
+    C.style.width=(W*s|0)+'px';
+    C.style.height=(H*s|0)+'px';
+    C.style.position='fixed';
+    C.style.left='50%';
+    C.style.top='50%';
+    C.style.transform='translate(-50%,-50%) rotate(90deg)';
+  }else{
+    const s=Math.min(vw/W,vh/H);
+    C.style.width=(W*s|0)+'px';
+    C.style.height=(H*s|0)+'px';
+    C.style.position='';
+    C.style.left='';
+    C.style.top='';
+    C.style.transform='';
+  }
 }
-window.addEventListener('resize',resize);resize();
+window.addEventListener('resize',resize);
+window.addEventListener('orientationchange',resize);
+resize();
 
 // ============ CONSTANTS ============
 const GND=185, GRAV=700, JMPV=-290, SPD0=80, GAP=260, LVLEND=6000, PKX=60;
@@ -86,8 +107,8 @@ function onPress(){
 document.addEventListener('keydown',e=>{
   if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();onPress();}
 });
-C.addEventListener('touchstart',e=>{e.preventDefault();onPress();},{passive:false});
-C.addEventListener('mousedown',onPress);
+document.addEventListener('touchstart',e=>{e.preventDefault();onPress();},{passive:false});
+document.addEventListener('mousedown',onPress);
 
 // ============ GAME LIFECYCLE ============
 function startGame(){
