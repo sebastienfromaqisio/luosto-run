@@ -158,7 +158,7 @@ function update(){
 
   if(st!=='PLAY')return;
 
-  spd=SPD0+dist*0.003;
+  spd=Math.min(SPD0+dist*0.008,140);
   dist+=spd*dt;
   bgO[0]+=spd*0.2*dt;bgO[1]+=spd*0.5*dt;bgO[2]+=spd*0.8*dt;
 
