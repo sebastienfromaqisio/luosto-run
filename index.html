@@ -79,6 +79,41 @@ const LVLS=[null,
    colPts:10,
    vicTitle:'For\u00eat travers\u00e9e !',
    vicText:['La balade touche \u00e0 sa fin.',"Au loin, l'entr\u00e9e de la mine d'am\u00e9thyste...",'Joy dort d\u00e9j\u00e0 dans sa luge.']},
+  {name:"La Mine d'Am\u00e9thyste",dist:5500,spd0:85,maxSpd:135,accel:0.007,gap:270,
+   intro:["On nous a promis des tr\u00e9sors.","On nous a donn\u00e9 une passoire.","On aurait d\u00fb se m\u00e9fier."],
+   sign:null,hasJoy:false,katSkis:false,bg:'mine',
+   obs:[{n:'rocks',w:20,h:14,wt:4},{n:'beam',w:28,h:8,wt:3},{n:'hole',w:16,h:6,wt:2}],
+   colPts:10,colName:'amethyst',
+   special:'confiscation',
+   vicTitle:'Inspection du butin',
+   vicText:[]},
+  {name:'Ski de Fond : La Revanche',dist:6500,spd0:85,maxSpd:145,accel:0.007,gap:250,
+   intro:['20 km de ski.','Plusieurs chutes.','Z\u00e9ro regret.'],
+   sign:null,hasJoy:false,katSkis:true,bg:'forest',
+   obs:[{n:'bump',w:18,h:12,wt:4},{n:'branch',w:26,h:10,wt:3},{n:'skier',w:16,h:30,wt:1}],
+   colPts:10,falls:3,
+   vicTitle:'20 km !',
+   vicText:['Distance : 20 km \u2713','Les courbatures arrivent demain.']},
+  {name:'Les Huskies',dist:5000,spd0:95,maxSpd:155,accel:0.009,gap:280,
+   intro:["Personne n'avait pr\u00e9venu Kat","qu'il y aurait des b\u00e9b\u00e9s huskies.","Personne n'\u00e9tait pr\u00e9par\u00e9."],
+   sign:null,hasJoy:false,katSkis:false,bg:'husky',
+   obs:[{n:'mound',w:20,h:16,wt:4},{n:'huskyrun',w:18,h:20,wt:2}],
+   colPts:25,colName:'babyhusky',
+   vicTitle:'Fin de la balade',
+   vicText:["Tentatives d'adoption : 3.","Adoptions r\u00e9ussies : 0.","Coeur bris\u00e9 : 1."]},
+  {name:'Le Bonhomme de Neige',dist:4500,spd0:75,maxSpd:120,accel:0.006,gap:240,
+   intro:["Apr\u00e8s tant d'aventures,","il \u00e9tait temps de laisser","une trace artistique."],
+   sign:null,hasJoy:true,katSkis:false,bg:'forest',
+   obs:[{n:'mound',w:20,h:16,wt:4},{n:'branch',w:26,h:10,wt:3}],
+   colPts:10,colName:'snowpart',
+   vicTitle:'Chef-d\'oeuvre !',
+   vicText:['Oeuvre sans titre n\u00b01','Artiste : K., mars 2026','Mixed media : neige, b\u00e2tons, r\u00eaves','Direction artistique : Joy']},
+  {name:'Les Aurores',dist:5000,spd0:50,maxSpd:60,accel:0.001,gap:9999,
+   intro:['Le dernier soir.','Le ciel a d\u00e9cid\u00e9 de nous offrir','le plus beau des cadeaux.'],
+   sign:null,hasJoy:true,katSkis:false,bg:'night',noGameOver:true,
+   obs:[],colPts:5,
+   vicTitle:null,
+   vicText:[]},
 ];
 
 // ============ STATE ============
@@ -134,6 +169,7 @@ function onPress(){
   if(st==='TITLE'){startGame();return;}
   if(st==='INTRO'){st='PLAY';return;}
   if(st==='GAMEOVER'){startLevel(lvl);return;}
+  if(st==='CONFISCATION'){st='VICTORY';sndWin();canIn=false;setTimeout(()=>canIn=true,500);return;}
   if(st==='VICTORY'){
     if(lvl<LVLS.length-1){startLevel(lvl+1);}
     else{st='TITLE';}
@@ -168,8 +204,18 @@ function doGO(){
   if(ts>best){best=ts;localStorage.setItem('luosto_best',best);}
   canIn=false;setTimeout(()=>canIn=true,500);
 }
+let confiscated=0;
 function doWin(){
-  st='VICTORY';sndWin();
+  const L=LVLS[lvl];
+  if(L.special==='confiscation'){
+    // Amethyst confiscation
+    const kept=Math.floor(score*(0.4+Math.random()*0.2)/L.colPts);
+    confiscated=score/L.colPts-kept;
+    score=kept*L.colPts;
+    st='CONFISCATION';sndHit();
+  }else{
+    st='VICTORY';sndWin();
+  }
   totalScore+=score;
   if(totalScore>best){best=totalScore;localStorage.setItem('luosto_best',best);}
   if(lvl<LVLS.length-1){
@@ -211,18 +257,16 @@ function update(){
   kat.ft+=dt;
   if(kat.ft>0.15){kat.ft=0;kat.fr=(kat.fr+1)%3;}
 
-  // Joy Y buffer
-  jyBuf.push(kat.y+kat.h-16);
-  if(jyBuf.length>10)jyBuf.shift();
-  const rawJY=jyBuf[0];
-  joy.y=Math.max(GND-28,Math.min(rawJY,GND-16));
-
-  // Joy tail
-  joy.tt+=dt;if(joy.tt>0.25){joy.tt=0;joy.tf=1-joy.tf;}
-  // Joy WOUF
-  joy.wcd-=dt;
-  if(joy.wcd<=0){joy.wouf=true;joy.wt=1.2;joy.wcd=8+Math.random()*15;}
-  if(joy.wouf){joy.wt-=dt;if(joy.wt<=0)joy.wouf=false;}
+  // Joy (only if present in this level)
+  if(L.hasJoy){
+    jyBuf.push(kat.y+kat.h-16);
+    if(jyBuf.length>10)jyBuf.shift();
+    joy.y=Math.max(GND-28,Math.min(jyBuf[0],GND-16));
+    joy.tt+=dt;if(joy.tt>0.25){joy.tt=0;joy.tf=1-joy.tf;}
+    joy.wcd-=dt;
+    if(joy.wcd<=0){joy.wouf=true;joy.wt=1.2;joy.wcd=8+Math.random()*15;}
+    if(joy.wouf){joy.wt-=dt;if(joy.wt<=0)joy.wouf=false;}
+  }
 
   // Spawn obstacles
   if(dist>=nxObs&&dist<L.dist-300){
@@ -244,10 +288,12 @@ function update(){
   cols=cols.filter(c=>c.x>-20);
 
   // Collision obstacles (reduced hitboxes)
-  for(const o of obs){
-    const px=kat.x+kat.w*0.15,py=kat.y+kat.h*0.15,pw=kat.w*0.7,ph=kat.h*0.7;
-    const ox=o.x+o.w*0.2,oy=o.y+o.h*0.2,ow=o.w*0.6,oh=o.h*0.6;
-    if(px<ox+ow&&px+pw>ox&&py<oy+oh&&py+ph>oy){doGO();return;}
+  if(!L.noGameOver){
+    for(const o of obs){
+      const px=kat.x+kat.w*0.15,py=kat.y+kat.h*0.15,pw=kat.w*0.7,ph=kat.h*0.7;
+      const ox=o.x+o.w*0.2,oy=o.y+o.h*0.2,ow=o.w*0.6,oh=o.h*0.6;
+      if(px<ox+ow&&px+pw>ox&&py<oy+oh&&py+ph>oy){doGO();return;}
+    }
   }
 
   // Collect
@@ -438,31 +484,85 @@ function drawObstacle(o){
     X.fillStyle='#222';X.fillRect(o.x+1,o.y+7,1,1);
     X.fillStyle='#555';X.fillRect(o.x-2,o.y+9,2,2);
     X.fillStyle='#EEE';X.fillRect(o.x+17,o.y+9,3,3);
+  }else if(o.n==='rocks'){
+    // Pile of rocks (mine)
+    X.fillStyle='#6A6A6A';X.fillRect(o.x+2,o.y+6,o.w-4,o.h-6);
+    X.fillRect(o.x+4,o.y+3,o.w-8,o.h-3);
+    X.fillStyle='#888';X.fillRect(o.x+3,o.y+4,4,3);X.fillRect(o.x+10,o.y+3,5,3);
+    X.fillStyle='#555';X.fillRect(o.x+6,o.y+7,3,2);X.fillRect(o.x+12,o.y+8,4,2);
+    X.fillStyle='#777';X.fillRect(o.x+5,o.y+3,3,2);
+  }else if(o.n==='beam'){
+    // Low wooden beam (mine)
+    X.fillStyle='#8B7355';X.fillRect(o.x,o.y+2,o.w,4);
+    X.fillStyle='#A08B6B';X.fillRect(o.x+1,o.y+2,o.w-2,1);
+    X.fillStyle='#6B5335';X.fillRect(o.x,o.y+5,o.w,1);
+    // Supports
+    X.fillStyle='#7B6345';X.fillRect(o.x+2,o.y,3,o.h);X.fillRect(o.x+o.w-5,o.y,3,o.h);
+  }else if(o.n==='hole'){
+    // Hole in ground (mine)
+    X.fillStyle='#1A1A1A';X.fillRect(o.x+1,o.y+1,o.w-2,o.h-1);
+    X.fillStyle='#333';X.fillRect(o.x,o.y,o.w,1);
+    X.fillStyle='#555';X.fillRect(o.x+2,o.y+2,2,1);
+  }else if(o.n==='bump'){
+    // Ski bump/mogul
+    X.fillStyle='#CCD4E8';
+    X.fillRect(o.x+3,o.y+6,o.w-6,o.h-6);
+    X.fillRect(o.x+5,o.y+3,o.w-10,o.h-3);
+    X.fillRect(o.x+7,o.y+1,o.w-14,o.h-1);
+    X.fillStyle='#E4ECF8';X.fillRect(o.x+6,o.y+2,o.w-12,3);
+    X.fillStyle='#FFF';X.fillRect(o.x+7,o.y+1,o.w-14,1);
+  }else if(o.n==='skier'){
+    // Slow skier
+    X.fillStyle='#CC4444';X.fillRect(o.x+4,o.y+4,8,12);// red jacket
+    X.fillStyle='#FFDDAA';X.fillRect(o.x+6,o.y+1,4,4);// head
+    X.fillStyle='#3D3D6B';X.fillRect(o.x+5,o.y+16,3,10);X.fillRect(o.x+9,o.y+16,3,10);// legs
+    X.fillStyle='#CC3333';X.fillRect(o.x+3,o.y+26,5,3);X.fillRect(o.x+9,o.y+26,5,3);// skis
+    X.fillStyle='#777';X.fillRect(o.x+3,o.y+6,1,16);// pole
+  }else if(o.n==='huskyrun'){
+    // Escaped husky crossing
+    X.fillStyle='#DDD';X.fillRect(o.x+3,o.y+6,12,8);// body
+    X.fillStyle='#888';X.fillRect(o.x+3,o.y+6,4,3);// head marking
+    X.fillRect(o.x+12,o.y+8,3,3);// tail marking
+    X.fillStyle='#DDD';X.fillRect(o.x+1,o.y+4,5,5);// head
+    X.fillStyle='#111';X.fillRect(o.x+2,o.y+6,1,1);// eye
+    X.fillRect(o.x,o.y+7,1,1);// nose
+    X.fillStyle='#DDD';
+    X.fillRect(o.x+4,o.y+14,3,6);X.fillRect(o.x+10,o.y+14,3,6);// legs
   }
 }
 
-// Collectible
+// Collectible (adapts per level)
 function drawCol(c){
+  const L=LVLS[lvl],cn=L.colName;
   const p=Math.sin(time*5+c.x)*0.3+0.7;
-  // Glow
-  X.globalAlpha=p*0.15;X.fillStyle='#FFD700';X.fillRect(c.x-1,c.y-1,10,10);
-  X.globalAlpha=1;
-  // Snowflake crystal shape (6 arms)
-  X.fillStyle='#FFD700';
-  // Vertical arm
-  X.fillRect(c.x+3,c.y,2,8);
-  // Two diagonal arms (/ and \)
-  X.fillRect(c.x+1,c.y+1,1,1);X.fillRect(c.x+2,c.y+2,1,1);
-  X.fillRect(c.x+5,c.y+2,1,1);X.fillRect(c.x+6,c.y+1,1,1);
-  X.fillRect(c.x+1,c.y+6,1,1);X.fillRect(c.x+2,c.y+5,1,1);
-  X.fillRect(c.x+5,c.y+5,1,1);X.fillRect(c.x+6,c.y+6,1,1);
-  // Horizontal arm
-  X.fillRect(c.x,c.y+3,8,2);
-  // Branch tips on arms
-  X.fillRect(c.x+1,c.y+3,1,1);X.fillRect(c.x+6,c.y+4,1,1);
-  // Bright center
-  X.fillStyle='#FFEE66';X.fillRect(c.x+3,c.y+3,2,2);
-  X.fillStyle='#FFF';X.fillRect(c.x+3,c.y+3,1,1);
+  if(cn==='amethyst'){
+    // Purple amethyst crystal
+    X.globalAlpha=p*0.15;X.fillStyle='#9933CC';X.fillRect(c.x-1,c.y-1,10,10);
+    X.globalAlpha=1;
+    X.fillStyle='#7722AA';
+    X.fillRect(c.x+2,c.y+1,4,6);X.fillRect(c.x+1,c.y+2,6,4);
+    X.fillStyle='#9944CC';X.fillRect(c.x+3,c.y,2,2);// top facet
+    X.fillRect(c.x+2,c.y+2,4,3);
+    X.fillStyle='#BB66EE';X.fillRect(c.x+3,c.y+2,2,2);// highlight
+    X.fillStyle='#FFF';X.fillRect(c.x+3,c.y+2,1,1);
+  }else if(cn==='babyhusky'){
+    // Baby husky
+    X.fillStyle='#EEE';X.fillRect(c.x+1,c.y+2,6,4);// body
+    X.fillStyle='#AAA';X.fillRect(c.x+1,c.y+2,3,2);// marking
+    X.fillStyle='#EEE';X.fillRect(c.x,c.y,4,3);// head
+    X.fillStyle='#111';X.fillRect(c.x+1,c.y+1,1,1);// eye
+    X.fillStyle='#EEE';X.fillRect(c.x+2,c.y+6,2,2);X.fillRect(c.x+5,c.y+6,2,2);// legs
+  }else{
+    // Golden snowflake (default)
+    X.globalAlpha=p*0.15;X.fillStyle='#FFD700';X.fillRect(c.x-1,c.y-1,10,10);
+    X.globalAlpha=1;
+    X.fillStyle='#FFD700';
+    X.fillRect(c.x+3,c.y,2,8);X.fillRect(c.x,c.y+3,8,2);
+    X.fillRect(c.x+1,c.y+1,2,2);X.fillRect(c.x+5,c.y+1,2,2);
+    X.fillRect(c.x+1,c.y+5,2,2);X.fillRect(c.x+5,c.y+5,2,2);
+    X.fillStyle='#FFEE66';X.fillRect(c.x+3,c.y+3,2,2);
+    X.fillStyle='#FFF';X.fillRect(c.x+3,c.y+3,1,1);
+  }
 }
 
 // Sign
@@ -553,6 +653,49 @@ function drawBirch(cx,gy,h){
 }
 
 function drawSky(){
+  const L=LVLS[lvl];
+  if(L.bg==='mine'){
+    // Mine interior
+    const g=X.createLinearGradient(0,0,0,GND);
+    g.addColorStop(0,'#3A2A1A');g.addColorStop(1,'#4A3A2A');
+    X.fillStyle=g;X.fillRect(0,0,W,GND);
+    // Wooden beams on ceiling
+    X.fillStyle='#5A4A30';
+    for(let i=0;i<8;i++)X.fillRect(i*55+10,0,4,GND);
+    X.fillRect(0,0,W,4);
+    // Light bulbs
+    X.fillStyle='#FFD700';
+    for(let bx=40;bx<W;bx+=100){
+      X.fillRect(bx,6,2,4);
+      X.fillStyle='#FFEE88';X.fillRect(bx-1,10,4,3);
+      X.fillStyle='#FFD700';
+    }
+    return;
+  }
+  if(L.bg==='night'){
+    // Night sky
+    const g=X.createLinearGradient(0,0,0,GND);
+    g.addColorStop(0,'#0A1030');g.addColorStop(0.5,'#1A2050');g.addColorStop(1,'#2A3060');
+    X.fillStyle=g;X.fillRect(0,0,W,GND);
+    // Stars
+    X.fillStyle='#FFF';
+    for(let i=0;i<40;i++){
+      const sx=(i*127+43)%W,sy=(i*89+17)%(GND-30);
+      if(Math.sin(time*2+i)>0.2)X.fillRect(sx,sy,1,1);
+    }
+    // Aurora borealis
+    X.globalAlpha=0.3;
+    for(let ax=0;ax<W;ax+=2){
+      const ay=40+Math.sin(ax*0.03+time*0.8)*15+Math.sin(ax*0.01+time*0.3)*10;
+      const ah=20+Math.sin(ax*0.02+time*0.5)*8;
+      X.fillStyle='#22CC66';X.fillRect(ax,ay,2,ah);
+      X.fillStyle='#8844AA';X.fillRect(ax,ay-3,2,4);
+      X.fillStyle='#2288AA';X.fillRect(ax,ay+ah-2,2,4);
+    }
+    X.globalAlpha=1;
+    return;
+  }
+  // Default forest sky
   const g=X.createLinearGradient(0,0,0,GND);
   g.addColorStop(0,'#A8B8CC');g.addColorStop(0.6,'#BCC8D8');g.addColorStop(1,'#D0D8E4');
   X.fillStyle=g;X.fillRect(0,0,W,GND);
@@ -582,12 +725,28 @@ function drawHills(){
 }
 
 function drawGround(){
-  X.fillStyle='#E4E8F2';X.fillRect(0,GND,W,H-GND);
-  X.fillStyle='#CCD4E4';X.fillRect(0,GND,W,2);
-  X.fillStyle='#D8DCE8';
-  const off=bgO[2]|0;
-  for(let x=-(off%60);x<W;x+=30){
-    X.fillRect(x,GND+8,10,2);X.fillRect(x+15,GND+16,6,2);
+  const L=LVLS[lvl];
+  if(L.bg==='mine'){
+    X.fillStyle='#5A4A35';X.fillRect(0,GND,W,H-GND);
+    X.fillStyle='#4A3A25';X.fillRect(0,GND,W,2);
+    // Gravel texture
+    X.fillStyle='#6A5A40';
+    const off=bgO[2]|0;
+    for(let x=-(off%40);x<W;x+=20){
+      X.fillRect(x,GND+5,3,2);X.fillRect(x+10,GND+12,2,2);X.fillRect(x+6,GND+8,2,1);
+    }
+  }else if(L.bg==='night'){
+    // Blueish snow at night
+    X.fillStyle='#C0C8E0';X.fillRect(0,GND,W,H-GND);
+    X.fillStyle='#A0A8C0';X.fillRect(0,GND,W,2);
+  }else{
+    X.fillStyle='#E4E8F2';X.fillRect(0,GND,W,H-GND);
+    X.fillStyle='#CCD4E4';X.fillRect(0,GND,W,2);
+    X.fillStyle='#D8DCE8';
+    const off=bgO[2]|0;
+    for(let x=-(off%60);x<W;x+=30){
+      X.fillRect(x,GND+8,10,2);X.fillRect(x+15,GND+16,6,2);
+    }
   }
 }
 
@@ -741,6 +900,60 @@ function drawVictoryScreen(){
   X.textBaseline='alphabetic';
 }
 
+function drawConfiscation(){
+  X.fillStyle='rgba(20,10,30,0.85)';X.fillRect(0,0,W,H);
+  X.textAlign='center';X.textBaseline='middle';
+  X.fillStyle='#CC4444';X.font='bold 12px monospace';
+  X.fillText('Inspection du butin',W/2,30);
+  // Kat disappointed
+  drawKatSit(W/2-16,55);
+  const kept=score/10;
+  X.fillStyle='#9944CC';X.font='bold 9px monospace';
+  X.fillText('Am\u00e9thystes restantes : '+kept,W/2,120);
+  X.fillStyle='#AABBCC';X.font='7px monospace';
+  X.fillText('Les larmes ne sont pas rembours\u00e9es.',W/2,138);
+  if(kept>0&&confiscated>8){
+    X.fillStyle='#FFAA00';X.font='6px monospace';
+    X.fillText('Tu y as vraiment cru, hein ?',W/2,152);
+  }
+  if((time*2|0)%2===0){
+    X.font='bold 7px monospace';X.fillStyle='#FFF';
+    X.fillText('APPUIE POUR CONTINUER',W/2,175);
+  }
+  X.textBaseline='alphabetic';
+}
+
+function drawFinalScreen(){
+  X.fillStyle='rgba(5,5,20,0.92)';X.fillRect(0,0,W,H);
+  X.textAlign='center';X.textBaseline='middle';
+  const lines=[
+    'Luosto, mars 2026.','',
+    '20 km de ski.','Quelques chutes.',
+    'Des am\u00e9thystes vol\u00e9es.',
+    'Un bonhomme de neige \u00e9ph\u00e9m\u00e8re.',
+    'Des b\u00e9b\u00e9s huskies (que Joy ne doit jamais savoir).',
+    'Et le plus beau ciel qu\'on ait jamais vu.','',
+    'Merci pour cette aventure, Kat. \u2764\uFE0F',
+    'Voil\u00e0, tu as enfin un brain-rot de qualit\u00e9.','',
+    '- Seb & Joy \uD83D\uDC3E'
+  ];
+  X.font='6px monospace';X.fillStyle='#CCDDEE';
+  const startY=14;
+  for(let i=0;i<lines.length;i++){
+    if(lines[i]==='')continue;
+    if(i===0||i>=9){X.fillStyle='#FFD700';X.font='bold 7px monospace';}
+    else{X.fillStyle='#CCDDEE';X.font='6px monospace';}
+    X.fillText(lines[i],W/2,startY+i*14);
+  }
+  X.fillStyle='#AABBCC';X.font='7px monospace';
+  X.fillText('Score total : '+totalScore,W/2,195);
+  if((time*2|0)%2===0){
+    X.font='bold 7px monospace';X.fillStyle='#FFF';
+    X.fillText('REJOUER',W/2,212);
+  }
+  X.textBaseline='alphabetic';
+}
+
 // ============ MAIN DRAW ============
 
 function draw(){
@@ -750,20 +963,24 @@ function draw(){
   if(st==='INTRO'){drawIntroScreen();return;}
 
   // Game world
-  drawSky();drawMtns();drawHills();drawGround();drawTrees();
+  const L=LVLS[lvl];
+  drawSky();
+  if(L.bg!=='mine'){drawMtns();drawHills();}
+  drawGround();
+  if(L.bg!=='mine')drawTrees();
 
   // Obstacles
   for(const o of obs)drawObstacle(o);
   // Collectibles
   for(const c of cols)drawCol(c);
   // Sign
-  if(signOn)drawSign(signX);
+  if(signOn&&L.sign)drawSign(signX);
   // Joy
-  drawJoySled(kat.x-36,joy.y,joy.tf,joy.wouf);
+  if(L.hasJoy)drawJoySled(kat.x-36,joy.y,joy.tf,joy.wouf);
   // Kat
   drawKat(kat.x,kat.y,kat.fr,!kat.gnd);
 
-  drawSnow();
+  if(L.bg!=='mine')drawSnow();
 
   // Floating texts
   for(const f of ftxts){
@@ -776,7 +993,11 @@ function draw(){
   // Overlays
   if(st==='PLAY')drawHUD();
   else if(st==='GAMEOVER')drawGameOverScreen();
-  else if(st==='VICTORY')drawVictoryScreen();
+  else if(st==='CONFISCATION')drawConfiscation();
+  else if(st==='VICTORY'){
+    if(lvl===6)drawFinalScreen();
+    else drawVictoryScreen();
+  }
 }
 
 // ============ LOOP ============
