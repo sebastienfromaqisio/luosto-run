@@ -164,8 +164,9 @@ mkSnow();
 
 // ============ INPUT ============
 function onPress(){
-  if(!canIn)return;
   initAudio();
+  if(actx&&actx.state==='suspended')actx.resume();
+  if(!canIn)return;
   if(st==='TITLE'){startGame();return;}
   if(st==='INTRO'){st='PLAY';return;}
   if(st==='GAMEOVER'){startLevel(lvl);return;}
