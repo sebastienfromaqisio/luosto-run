@@ -16,6 +16,7 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
 </head>
 <body>
 <canvas id="g"></canvas>
+<div id="tap" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:10"></div>
 <script>
 'use strict';
 const C=document.getElementById('g'),X=C.getContext('2d');
@@ -109,8 +110,10 @@ function onPress(){
 document.addEventListener('keydown',e=>{
   if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();onPress();}
 });
-document.addEventListener('touchstart',e=>{e.preventDefault();onPress();},{passive:false});
-document.addEventListener('mousedown',onPress);
+const tap=document.getElementById('tap');
+tap.addEventListener('touchstart',e=>{e.preventDefault();e.stopPropagation();onPress();},{passive:false});
+tap.addEventListener('touchend',e=>{e.preventDefault();},{passive:false});
+tap.addEventListener('mousedown',e=>{e.preventDefault();onPress();});
 
 // ============ GAME LIFECYCLE ============
 function startGame(){
