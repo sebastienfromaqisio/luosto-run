@@ -106,6 +106,7 @@ const LVLS=[null,
   {name:'Ski de Fond : La Revanche',dist:6500,spd0:90,maxSpd:150,accel:0.007,gap:250,
    intro:['20 km de ski.','Plusieurs chutes.','Z\u00e9ro regret.'],
    sign:null,hasJoy:false,katSkis:true,bg:'forest',
+   bg:'ski',
    obs:[{n:'bump',w:18,h:12,wt:3},{n:'branch',w:26,h:10,wt:3},{n:'skier',w:16,h:30,wt:2}],
    colPts:10,falls:3,
    vicTitle:'20 km !',
@@ -117,13 +118,13 @@ const LVLS=[null,
    colPts:25,colName:'babyhusky',
    vicTitle:'Fin de la balade',
    vicText:["Tentatives d'adoption : 3.","Adoptions r\u00e9ussies : 0.","Coeur bris\u00e9 : 1."]},
-  {name:'Le Bonhomme de Neige',dist:4500,spd0:80,maxSpd:130,accel:0.006,gap:260,
-   intro:["Apr\u00e8s tant d'aventures,","il \u00e9tait temps de laisser","une trace artistique."],
-   sign:null,hasJoy:true,katSkis:false,bg:'forest',
-   obs:[{n:'mound',w:20,h:16,wt:4},{n:'branch',w:26,h:10,wt:3}],
-   colPts:10,colName:'snowpart',
+  {name:'Le Bonhomme de Neige',dist:4500,spd0:75,maxSpd:120,accel:0.005,gap:300,
+   intro:["Apr\u00e8s tant d'aventures,","il \u00e9tait temps de laisser","une trace artistique.","(Attention \u00e0 Joy...)"],
+   sign:null,hasJoy:false,katSkis:false,bg:'forest',joyChase:true,
+   obs:[{n:'mound',w:20,h:16,wt:3},{n:'branch',w:26,h:10,wt:2}],
+   colPts:0,colName:'snowpart',snowParts:7,
    vicTitle:'Chef-d\'oeuvre !',
-   vicText:['Oeuvre sans titre n\u00b01','Artiste : K., mars 2026','Mixed media : neige, b\u00e2tons, r\u00eaves','Direction artistique : Joy']},
+   vicText:[]},
   {name:'Les Aurores',dist:5000,spd0:50,maxSpd:60,accel:0.001,gap:9999,
    intro:['Le dernier soir.','Le ciel a d\u00e9cid\u00e9 de nous offrir','le plus beau des cadeaux.'],
    sign:null,hasJoy:true,katSkis:false,bg:'night',noGameOver:true,
@@ -136,6 +137,7 @@ const LVLS=[null,
 let st='TITLE',score=0,dist=0,spd=80,dt=0,lastT=0,time=0,canIn=true;
 let lvl=1,totalScore=0;
 let fallsLeft=0,invT=0,bossOn=false,bossX=0,bossHit=false,bossDir=1,bossTimer=0,bossInvT=0;
+let joyX=0,joyVx=0,joyDir=1,snowParts=0,snowStolen=0;
 let best=+(localStorage.getItem('luosto_best')||0);
 let savedLvl=+(localStorage.getItem('luosto_lvl')||1);
 
@@ -222,6 +224,7 @@ function startLevel(n){
   joy={tf:0,tt:0,wouf:false,wt:0,wcd:5+Math.random()*10,y:GND-16};
   jyBuf=[];obs=[];cols=[];ftxts=[];
   fallsLeft=L.falls||0;invT=0;bossOn=false;bossX=0;
+  joyX=200;joyVx=40;joyDir=1;snowParts=0;snowStolen=0;
   nxObs=300+Math.random()*80;nxCol=150+Math.random()*80;
   signOn=false;signX=W+20;bgO=[0,0,0];
   canIn=false;setTimeout(()=>canIn=true,400);
@@ -299,7 +302,7 @@ function update(){
   }
 
   // Spawn obstacles
-  if(dist>=nxObs&&dist<L.dist-300){
+  if(L.obs.length>0&&dist>=nxObs&&dist<L.dist-300){
     const t=pickOT();
     obs.push({x:W+10,y:GND-t.h,w:t.w,h:t.h,n:t.n});
     nxObs=dist+L.gap+Math.random()*100;
@@ -342,9 +345,38 @@ function update(){
   for(let i=cols.length-1;i>=0;i--){
     const c=cols[i];
     if(kat.x<c.x+c.w&&kat.x+kat.w>c.x&&kat.y<c.y+c.h&&kat.y+kat.h>c.y){
-      score+=L.colPts;sndCollect();
-      ftxts.push({x:c.x,y:c.y,t:'+'+L.colPts,life:0.8});
+      if(L.joyChase){snowParts++;sndCollect();ftxts.push({x:c.x,y:c.y,t:'\u2744',life:0.8});}
+      else{score+=L.colPts;sndCollect();ftxts.push({x:c.x,y:c.y,t:'+'+L.colPts,life:0.8});}
       cols.splice(i,1);
+    }
+  }
+
+  // Joy chase mechanic (level 5)
+  if(L.joyChase){
+    // Joy runs around
+    joyX+=joyVx*joyDir*dt;
+    // Bounce off screen edges
+    if(joyX>W-20){joyDir=-1;joyX=W-20;}
+    if(joyX<10){joyDir=1;joyX=10;}
+    // Joy targets nearest collectible
+    let nearest=null,nd=999;
+    for(const c of cols){const d=Math.abs(c.x-joyX);if(d<nd){nd=d;nearest=c;}}
+    if(nearest){
+      // Joy sprints toward collectible
+      joyVx=80+Math.random()*20;
+      joyDir=nearest.x>joyX?1:-1;
+      // Joy steals collectible if close
+      if(Math.abs(nearest.x-joyX)<8&&nearest.y>GND-30){
+        cols.splice(cols.indexOf(nearest),1);
+        snowStolen++;sndHit();
+        ftxts.push({x:joyX,y:GND-30,t:'Vol\u00e9 !',life:1});
+      }
+    }else{joyVx=30+Math.random()*20;}// wander
+    // Kat bumps Joy -> Joy runs away
+    if(Math.abs(kat.x+16-joyX)<20&&kat.y>GND-55){
+      joyDir=kat.x+16>joyX?-1:1;
+      joyVx=150;// sprint away
+      ftxts.push({x:joyX,y:GND-35,t:'Oust !',life:0.8});
     }
   }
 
@@ -792,6 +824,13 @@ function drawSky(){
     X.globalAlpha=1;
     return;
   }
+  if(L.bg==='ski'){
+    // Open ski valley - brighter, wider sky
+    const g=X.createLinearGradient(0,0,0,GND);
+    g.addColorStop(0,'#8AAED0');g.addColorStop(0.5,'#A8C4DD');g.addColorStop(1,'#C8D8E8');
+    X.fillStyle=g;X.fillRect(0,0,W,GND);
+    return;
+  }
   // Default forest sky
   const g=X.createLinearGradient(0,0,0,GND);
   g.addColorStop(0,'#A8B8CC');g.addColorStop(0.6,'#BCC8D8');g.addColorStop(1,'#D0D8E4');
@@ -836,6 +875,14 @@ function drawGround(){
     // Blueish snow at night
     X.fillStyle='#C0C8E0';X.fillRect(0,GND,W,H-GND);
     X.fillStyle='#A0A8C0';X.fillRect(0,GND,W,2);
+  }else if(L.bg==='ski'){
+    // Ski trail ground with tracks
+    X.fillStyle='#E8ECF6';X.fillRect(0,GND,W,H-GND);
+    X.fillStyle='#D0D8EA';X.fillRect(0,GND,W,2);
+    // Two parallel ski tracks
+    X.fillStyle='#CCD4E4';
+    const off=bgO[2]|0;
+    X.fillRect(0,GND+10,W,1);X.fillRect(0,GND+14,W,1);
   }else{
     X.fillStyle='#E4E8F2';X.fillRect(0,GND,W,H-GND);
     X.fillStyle='#CCD4E4';X.fillRect(0,GND,W,2);
@@ -873,6 +920,42 @@ function drawTrees(){
         if(t.pine)drawPine(tx,GND,t.h);else drawBirch(tx,GND,t.h);
       }
     }
+  }
+}
+
+function drawCabins(){
+  const off=(bgO[2]|0)%300;
+  for(let r=-1;r<=2;r++){
+    const bx=-off+r*300+50;
+    if(bx<-40||bx>W+40)continue;
+    // Log cabin
+    X.fillStyle='#4A3020';X.fillRect(bx,GND-25,30,25);
+    X.fillStyle='#5A3A28';X.fillRect(bx+2,GND-23,26,21);
+    // Roof
+    X.fillStyle='#3A2818';
+    X.fillRect(bx-3,GND-30,36,6);X.fillRect(bx+2,GND-33,26,4);X.fillRect(bx+8,GND-35,14,3);
+    // Snow on roof
+    X.fillStyle='#C8D0E4';X.fillRect(bx-2,GND-30,35,2);X.fillRect(bx+3,GND-33,24,2);
+    // Window (warm yellow glow)
+    X.fillStyle='#FFDD66';X.fillRect(bx+8,GND-18,6,6);X.fillRect(bx+18,GND-18,6,6);
+    X.fillStyle='#FFEE88';X.fillRect(bx+9,GND-17,4,4);X.fillRect(bx+19,GND-17,4,4);
+    // Door
+    X.fillStyle='#3A2010';X.fillRect(bx+12,GND-12,6,12);
+    // Chimney
+    X.fillStyle='#555';X.fillRect(bx+22,GND-40,4,8);
+    // Smoke
+    X.fillStyle='rgba(200,200,220,0.4)';
+    const st2=time*0.5;
+    X.fillRect(bx+22+Math.sin(st2)*3,GND-44,3,2);
+    X.fillRect(bx+21+Math.sin(st2+1)*4,GND-48,2,2);
+  }
+  // Some pine silhouettes between cabins
+  X.fillStyle='#1A2838';
+  for(let i=0;i<6;i++){
+    const tx=(-off+i*55+20)%330-15;
+    if(tx<-10||tx>W+10)continue;
+    X.fillRect(tx,GND-20,2,22);
+    X.fillRect(tx-4,GND-12,10,4);X.fillRect(tx-3,GND-16,8,4);X.fillRect(tx-1,GND-20,4,4);
   }
 }
 
@@ -991,6 +1074,15 @@ function drawHUD(){
       }
     }
   }
+  // Snowman progress (level 5)
+  if(L.joyChase){
+    drawMiniSnowman(W-20,4,snowParts);
+    X.fillStyle='#FFF';X.font='6px monospace';X.textAlign='right';
+    X.fillText(snowParts+'/7',W-30,14);
+    if(snowStolen>0){
+      X.fillStyle='#FF6666';X.fillText('Vol\u00e9s: '+snowStolen,W-30,22);
+    }
+  }
 }
 
 const GOMSG=[
@@ -1021,18 +1113,79 @@ function drawVictoryScreen(){
   X.textAlign='center';X.textBaseline='middle';
   X.fillStyle='#FFD700';X.font='bold 13px monospace';
   X.fillText(L.vicTitle,W/2,35);
-  X.font='7px monospace';X.fillStyle='#CCDDEE';
-  for(let i=0;i<L.vicText.length;i++)X.fillText(L.vicText[i],W/2,65+i*16);
+  if(L.joyChase){
+    // Snowman victory: show built snowman + museum plaque
+    drawMiniSnowman(W/2,70,snowParts);
+    X.font='6px monospace';X.fillStyle='#AABBCC';
+    X.fillText('Pi\u00e8ces trouv\u00e9es : '+snowParts+'/7',W/2,100);
+    if(snowStolen>0)X.fillText('Pi\u00e8ces vol\u00e9es par Joy : '+snowStolen,W/2,110);
+    X.fillStyle='#E8D8A0';X.fillRect(W/2-60,118,120,42);
+    X.fillStyle='#AA8844';X.fillRect(W/2-60,118,120,1);X.fillRect(W/2-60,159,120,1);
+    X.fillRect(W/2-60,118,1,42);X.fillRect(W/2+59,118,1,42);
+    X.fillStyle='#4A2A0A';X.font='bold 6px monospace';
+    X.fillText('Oeuvre sans titre n\u00b01',W/2,128);
+    X.font='5px monospace';
+    X.fillText('Artiste : K., r\u00e9sidence arctique, mars 2026',W/2,136);
+    X.fillText('Mixed media : neige, b\u00e2tons, r\u00eaves',W/2,144);
+    X.fillText('Direction artistique : Joy',W/2,152);
+  }else{
+    X.font='7px monospace';X.fillStyle='#CCDDEE';
+    for(let i=0;i<L.vicText.length;i++)X.fillText(L.vicText[i],W/2,65+i*16);
+  }
   X.fillStyle='#FFD700';X.font='bold 8px monospace';
-  X.fillText('Score : '+score,W/2,125);
+  X.fillText('Score : '+(score||snowParts*10),W/2,L.joyChase?170:125);
   X.font='7px monospace';X.fillStyle='#AABBCC';
-  X.fillText('Meilleur : '+best,W/2,140);
+  X.fillText('Meilleur : '+best,W/2,L.joyChase?182:140);
   if((time*2|0)%2===0){
     X.font='bold 8px monospace';X.fillStyle='#FFF';
     const txt=lvl<LVLS.length-1?'NIVEAU SUIVANT':'REJOUER';
     X.fillText(txt,W/2,175);
   }
   X.textBaseline='alphabetic';
+}
+
+function drawJoyRunning(x,y,dir){
+  const f=(time*6|0)%2;
+  // Body
+  X.fillStyle='#FAFAFA';X.fillRect(x+3,y,12,7);
+  // Brown patches
+  X.fillStyle='#BB6622';X.fillRect(dir>0?x+10:x+3,y,4,3);
+  // Head (direction-aware)
+  const hx=dir>0?x+13:x-3;
+  X.fillStyle='#FAFAFA';X.fillRect(hx,y-3,5,5);
+  X.fillStyle='#BB6622';X.fillRect(hx+(dir>0?1:2),y-3,3,2);
+  X.fillStyle='#111';X.fillRect(hx+(dir>0?2:1),y-1,1,1);// eye
+  X.fillRect(hx+(dir>0?4:0),y,1,1);// nose
+  // Ears
+  X.fillStyle='#BB6622';
+  X.fillRect(hx,y-5,2,3);X.fillRect(hx+3,y-5,2,3);
+  // Legs (animated)
+  X.fillStyle='#FAFAFA';
+  if(f){X.fillRect(x+4,y+7,2,4);X.fillRect(x+12,y+6,2,5);}
+  else{X.fillRect(x+4,y+6,2,5);X.fillRect(x+12,y+7,2,4);}
+  // Tail
+  const tx=dir>0?x+1:x+14;
+  if(f){X.fillRect(tx,y-1,2,3);}else{X.fillRect(tx,y+1,2,3);}
+  // Mischief indicator (! above head)
+  if((time*3|0)%4===0){
+    X.fillStyle='#FF4444';X.font='bold 7px monospace';X.textAlign='center';
+    X.fillText('!',x+9,y-10);
+  }
+}
+
+function drawMiniSnowman(x,y,parts){
+  // Draw snowman in HUD based on parts collected (0-7)
+  // 1-3: snowballs (bottom, middle, top)
+  if(parts>=1){X.fillStyle='#E8ECF4';X.fillRect(x-5,y+6,10,8);X.fillRect(x-6,y+8,12,4);}// bottom
+  if(parts>=2){X.fillStyle='#E8ECF4';X.fillRect(x-4,y,8,7);X.fillRect(x-3,y+1,6,5);}// middle
+  if(parts>=3){X.fillStyle='#E8ECF4';X.fillRect(x-3,y-6,6,6);X.fillRect(x-2,y-5,4,4);}// head
+  // 4: carrot nose
+  if(parts>=4){X.fillStyle='#FF8833';X.fillRect(x+2,y-3,3,1);}
+  // 5-6: stick arms
+  if(parts>=5){X.fillStyle='#5A3A1A';X.fillRect(x-8,y+3,5,1);}
+  if(parts>=6){X.fillStyle='#5A3A1A';X.fillRect(x+5,y+3,5,1);}
+  // 7: hat
+  if(parts>=7){X.fillStyle='#333';X.fillRect(x-3,y-7,6,2);X.fillRect(x-2,y-10,4,3);}
 }
 
 function drawHuskySled(x,y){
@@ -1194,7 +1347,8 @@ function draw(){
   drawSky();
   if(L.bg!=='mine'){drawMtns();drawHills();}
   drawGround();
-  if(L.bg!=='mine')drawTrees();
+  if(L.bg==='night')drawCabins();
+  else if(L.bg!=='mine')drawTrees();
 
   // Obstacles
   for(const o of obs)drawObstacle(o);
@@ -1204,9 +1358,11 @@ function draw(){
   if(signOn&&L.sign)drawSign(signX);
   // Boss inspector (mine level)
   if(bossOn)drawBoss(bossX);
-  // Husky sled (level 4) or Joy sled
+  // Husky sled (level 4) or Joy sled or Joy chase (level 5)
   if(lvl===4){
     drawHuskySled(kat.x-55,GND-18);
+  }else if(L.joyChase){
+    drawJoyRunning(joyX|0,GND-14,joyDir);
   }else if(L.hasJoy){
     drawJoySled(kat.x-36,joy.y,joy.tf,joy.wouf);
   }
