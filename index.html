@@ -105,7 +105,7 @@ const LVLS=[null,
    vicText:[]},
   {name:'Ski de Fond : La Revanche',dist:6500,spd0:100,maxSpd:170,accel:0.01,gap:180,
    intro:['20 km de ski.','Plusieurs chutes.','Z\u00e9ro regret.'],
-   sign:null,hasJoy:false,katSkis:true,bg:'forest',
+   sign:null,hasJoy:false,katSkis:true,
    bg:'ski',
    obs:[{n:'bump',w:18,h:12,wt:3},{n:'branch',w:26,h:10,wt:3},{n:'skier',w:16,h:30,wt:2}],
    colPts:10,falls:3,
@@ -129,7 +129,7 @@ const LVLS=[null,
    intro:['Le dernier soir.','Le ciel a d\u00e9cid\u00e9 de nous offrir','le plus beau des cadeaux.'],
    sign:null,hasJoy:true,katSkis:false,bg:'night',noGameOver:true,
    obs:[],colPts:5,
-   vicTitle:null,
+   vicTitle:'',
    vicText:[]},
 ];
 
@@ -331,6 +331,7 @@ function update(){
       if(px<ox+ow&&px+pw>ox&&py<oy+oh&&py+ph>oy){
         if(L.falls&&fallsLeft>0){
           fallsLeft--;sndHit();invT=2;
+          kat.y=GND-kat.h;kat.vy=0;kat.gnd=true;kat.jc=0;
           const msgs=['Ca fait partie de l\'apprentissage !','Le sol est confortable, en fait.','OK, derniere chance...'];
           const mi=L.falls-fallsLeft-1;
           ftxts.push({x:kat.x,y:kat.y-10,t:msgs[Math.min(mi,msgs.length-1)],life:1.5});
@@ -345,7 +346,7 @@ function update(){
   for(let i=cols.length-1;i>=0;i--){
     const c=cols[i];
     if(kat.x<c.x+c.w&&kat.x+kat.w>c.x&&kat.y<c.y+c.h&&kat.y+kat.h>c.y){
-      if(L.joyChase){snowParts++;sndCollect();ftxts.push({x:c.x,y:c.y,t:'\u2744',life:0.8});}
+      if(L.joyChase&&snowParts<7){snowParts++;sndCollect();ftxts.push({x:c.x,y:c.y,t:'\u2744',life:0.8});}
       else{score+=L.colPts;sndCollect();ftxts.push({x:c.x,y:c.y,t:'+'+L.colPts,life:0.8});}
       cols.splice(i,1);
     }
@@ -435,7 +436,7 @@ function update(){
 
 function drawKat(x,y,fr,jmp){
   const L=LVLS[lvl]||{katSkis:true,bg:'forest'};
-  const dark=L.bg==='mine'||lvl===4;
+  const dark=L.bg==='mine'||lvl===4||L.bg==='night';
   const bc=dark?'#333':'#4488CC';
   const bs=dark?'#222':'#3B7ABB';
   const be=dark?'#2A2A2A':'#3A70AA';
@@ -1000,26 +1001,26 @@ function drawTitleScreen(){
   drawJoyTitle(W/2+15,H-52,(time*3|0)%2);
 
   // Title
-  X.font='bold 22px monospace';X.textAlign='center';X.textBaseline='middle';
+  X.font='bold 26px monospace';X.textAlign='center';X.textBaseline='middle';
   X.fillStyle='#223366';X.fillText('LUOSTO RUN',W/2+2,40);
   X.fillStyle='#FFF';X.fillText('LUOSTO RUN',W/2,38);
 
-  X.font='bold 9px monospace';X.fillStyle='#FFAA00';
+  X.font='bold 11px monospace';X.fillStyle='#FFAA00';
   X.fillText('\u00c9dition Brain-Rot \uD83E\uDDE0\uD83E\uDE71',W/2,56);
 
-  X.font='7px monospace';X.fillStyle='#8899BB';
+  X.font='9px monospace';X.fillStyle='#8899BB';
   X.fillText('Laponie, Mars 2026',W/2,68);
 
   if((time*2|0)%2===0){
-    X.font='bold 8px monospace';X.fillStyle='#FFF';
+    X.font='bold 10px monospace';X.fillStyle='#FFF';
     X.fillText('APPUIE POUR COMMENCER',W/2,H-28);
   }
   if(savedLvl>1){
-    X.font='6px monospace';X.fillStyle='#AABBCC';
+    X.font='8px monospace';X.fillStyle='#AABBCC';
     X.fillText('Progression sauvegard\u00e9e : niveau '+savedLvl,W/2,H-18);
   }
 
-  X.font='6px monospace';X.fillStyle='#667799';
+  X.font='8px monospace';X.fillStyle='#667799';
   X.fillText('Enfin un brain-rot digne de ce nom \uD83D\uDC3E',W/2,H-8);
 
   drawSnow();
@@ -1031,15 +1032,15 @@ function drawIntroScreen(){
   X.fillStyle='rgba(10,15,30,0.82)';X.fillRect(0,0,W,H);
   X.textAlign='center';X.textBaseline='middle';
   const L=LVLS[lvl];
-  X.fillStyle='#FFD700';X.font='bold 14px monospace';
+  X.fillStyle='#FFD700';X.font='bold 16px monospace';
   X.fillText(L.name,W/2,40);
-  X.font='8px monospace';X.fillStyle='#AABBCC';
+  X.font='10px monospace';X.fillStyle='#AABBCC';
   X.fillText('Niveau '+lvl,W/2,56);
-  X.font='7px monospace';X.fillStyle='#CCDDEE';
+  X.font='9px monospace';X.fillStyle='#CCDDEE';
   const lines=L.intro;
   for(let i=0;i<lines.length;i++)X.fillText(lines[i],W/2,80+i*15);
   if((time*2|0)%2===0){
-    X.font='bold 7px monospace';X.fillStyle='#FFF';
+    X.font='bold 9px monospace';X.fillStyle='#FFF';
     X.fillText('APPUIE POUR COMMENCER',W/2,170);
   }
   X.textBaseline='alphabetic';
@@ -1047,14 +1048,14 @@ function drawIntroScreen(){
 
 function drawHUD(){
   const L=LVLS[lvl];
-  X.font='bold 7px monospace';X.textAlign='left';X.fillStyle='#FFF';
+  X.font='bold 9px monospace';X.textAlign='left';X.fillStyle='#FFF';
   X.fillText(L.name,5,12);
   X.textAlign='right';X.fillText('Score : '+score,W-5,12);
   X.fillStyle='rgba(255,255,255,0.2)';X.fillRect(5,17,80,3);
   X.fillStyle='rgba(255,255,255,0.6)';X.fillRect(5,17,Math.min(80,80*(dist/L.dist)),3);
   // Boss timer (mine level)
   if(bossOn&&lvl===2){
-    X.textAlign='center';X.fillStyle='#FF6666';X.font='bold 10px monospace';
+    X.textAlign='center';X.fillStyle='#FF6666';X.font='bold 12px monospace';
     X.fillText('\u00c9vite l\'inspectrice ! '+Math.ceil(bossTimer)+'s',W/2,12);
   }
   // Falls hearts (level 3)
@@ -1077,7 +1078,7 @@ function drawHUD(){
   // Snowman progress (level 5)
   if(L.joyChase){
     drawMiniSnowman(W-20,4,snowParts);
-    X.fillStyle='#FFF';X.font='6px monospace';X.textAlign='right';
+    X.fillStyle='#FFF';X.font='8px monospace';X.textAlign='right';
     X.fillText(snowParts+'/7',W-30,14);
     if(snowStolen>0){
       X.fillStyle='#FF6666';X.fillText('Vol\u00e9s: '+snowStolen,W-30,22);
@@ -1097,11 +1098,11 @@ function drawGameOverScreen(){
   drawKatSit(W/2-16,H/2-30);
   const msg=GOMSG[(score+dist|0)%GOMSG.length];
   X.textAlign='center';X.textBaseline='middle';
-  X.font='bold 8px monospace';X.fillStyle='#FFF';X.fillText(msg,W/2,H/2+22);
-  X.font='7px monospace';X.fillStyle='#AABBCC';
+  X.font='bold 10px monospace';X.fillStyle='#FFF';X.fillText(msg,W/2,H/2+22);
+  X.font='9px monospace';X.fillStyle='#AABBCC';
   X.fillText('Score : '+score+'   Meilleur : '+best,W/2,H/2+36);
   if((time*2|0)%2===0){
-    X.font='bold 8px monospace';X.fillStyle='#FFD700';
+    X.font='bold 10px monospace';X.fillStyle='#FFD700';
     X.fillText('R\u00c9ESSAYER',W/2,H/2+52);
   }
   X.textBaseline='alphabetic';
@@ -1111,33 +1112,33 @@ function drawVictoryScreen(){
   const L=LVLS[lvl];
   X.fillStyle='rgba(10,20,40,0.82)';X.fillRect(0,0,W,H);
   X.textAlign='center';X.textBaseline='middle';
-  X.fillStyle='#FFD700';X.font='bold 13px monospace';
-  X.fillText(L.vicTitle,W/2,35);
+  X.fillStyle='#FFD700';X.font='bold 15px monospace';
+  if(L.vicTitle)X.fillText(L.vicTitle,W/2,35);
   if(L.joyChase){
     // Snowman victory: show built snowman + museum plaque
     drawMiniSnowman(W/2,70,snowParts);
-    X.font='6px monospace';X.fillStyle='#AABBCC';
+    X.font='8px monospace';X.fillStyle='#AABBCC';
     X.fillText('Pi\u00e8ces trouv\u00e9es : '+snowParts+'/7',W/2,100);
     if(snowStolen>0)X.fillText('Pi\u00e8ces vol\u00e9es par Joy : '+snowStolen,W/2,110);
     X.fillStyle='#E8D8A0';X.fillRect(W/2-60,118,120,42);
     X.fillStyle='#AA8844';X.fillRect(W/2-60,118,120,1);X.fillRect(W/2-60,159,120,1);
     X.fillRect(W/2-60,118,1,42);X.fillRect(W/2+59,118,1,42);
-    X.fillStyle='#4A2A0A';X.font='bold 6px monospace';
+    X.fillStyle='#4A2A0A';X.font='bold 8px monospace';
     X.fillText('Oeuvre sans titre n\u00b01',W/2,128);
-    X.font='5px monospace';
+    X.font='7px monospace';
     X.fillText('Artiste : K., r\u00e9sidence arctique, mars 2026',W/2,136);
     X.fillText('Mixed media : neige, b\u00e2tons, r\u00eaves',W/2,144);
     X.fillText('Direction artistique : Joy',W/2,152);
   }else{
-    X.font='7px monospace';X.fillStyle='#CCDDEE';
+    X.font='9px monospace';X.fillStyle='#CCDDEE';
     for(let i=0;i<L.vicText.length;i++)X.fillText(L.vicText[i],W/2,65+i*16);
   }
-  X.fillStyle='#FFD700';X.font='bold 8px monospace';
+  X.fillStyle='#FFD700';X.font='bold 10px monospace';
   X.fillText('Score : '+(score||snowParts*10),W/2,L.joyChase?170:125);
-  X.font='7px monospace';X.fillStyle='#AABBCC';
+  X.font='9px monospace';X.fillStyle='#AABBCC';
   X.fillText('Meilleur : '+best,W/2,L.joyChase?182:140);
   if((time*2|0)%2===0){
-    X.font='bold 8px monospace';X.fillStyle='#FFF';
+    X.font='bold 10px monospace';X.fillStyle='#FFF';
     const txt=lvl<LVLS.length-1?'NIVEAU SUIVANT':'REJOUER';
     X.fillText(txt,W/2,175);
   }
@@ -1258,7 +1259,7 @@ function drawBoss(bx){
 function drawConfiscation(){
   X.fillStyle='rgba(20,10,30,0.85)';X.fillRect(0,0,W,H);
   X.textAlign='center';X.textBaseline='middle';
-  X.fillStyle='#CC4444';X.font='bold 12px monospace';
+  X.fillStyle='#CC4444';X.font='bold 14px monospace';
   X.fillText('Inspection du butin',W/2,30);
   // Kat disappointed
   drawKatSit(W/2-16,55);
@@ -1288,16 +1289,16 @@ function drawConfiscation(){
   // Arm holding clipboard
   X.fillStyle='#777';X.fillRect(ix+11,iy+15,3,4);}
   const kept=score/10;
-  X.fillStyle='#9944CC';X.font='bold 9px monospace';
+  X.fillStyle='#9944CC';X.font='bold 11px monospace';
   X.fillText('Am\u00e9thystes restantes : '+kept,W/2,120);
-  X.fillStyle='#AABBCC';X.font='7px monospace';
+  X.fillStyle='#AABBCC';X.font='9px monospace';
   X.fillText('Les larmes ne sont pas rembours\u00e9es.',W/2,138);
   if(kept>0&&confiscated>8){
-    X.fillStyle='#FFAA00';X.font='6px monospace';
+    X.fillStyle='#FFAA00';X.font='8px monospace';
     X.fillText('Tu y as vraiment cru, hein ?',W/2,152);
   }
   if((time*2|0)%2===0){
-    X.font='bold 7px monospace';X.fillStyle='#FFF';
+    X.font='bold 9px monospace';X.fillStyle='#FFF';
     X.fillText('APPUIE POUR CONTINUER',W/2,175);
   }
   X.textBaseline='alphabetic';
@@ -1317,18 +1318,18 @@ function drawFinalScreen(){
     'Voil\u00e0, tu as enfin un brain-rot de qualit\u00e9.','',
     '- Seb & Joy \uD83D\uDC3E'
   ];
-  X.font='6px monospace';X.fillStyle='#CCDDEE';
+  X.font='8px monospace';X.fillStyle='#CCDDEE';
   const startY=14;
   for(let i=0;i<lines.length;i++){
     if(lines[i]==='')continue;
-    if(i===0||i>=9){X.fillStyle='#FFD700';X.font='bold 7px monospace';}
-    else{X.fillStyle='#CCDDEE';X.font='6px monospace';}
+    if(i===0||i>=9){X.fillStyle='#FFD700';X.font='bold 9px monospace';}
+    else{X.fillStyle='#CCDDEE';X.font='8px monospace';}
     X.fillText(lines[i],W/2,startY+i*14);
   }
-  X.fillStyle='#AABBCC';X.font='7px monospace';
+  X.fillStyle='#AABBCC';X.font='9px monospace';
   X.fillText('Score total : '+totalScore,W/2,195);
   if((time*2|0)%2===0){
-    X.font='bold 7px monospace';X.fillStyle='#FFF';
+    X.font='bold 9px monospace';X.fillStyle='#FFF';
     X.fillText('REJOUER',W/2,212);
   }
   X.textBaseline='alphabetic';
@@ -1376,7 +1377,7 @@ function draw(){
   // Floating texts
   for(const f of ftxts){
     X.globalAlpha=Math.max(0,f.life);
-    X.fillStyle='#FFD700';X.font='bold 7px monospace';X.textAlign='center';
+    X.fillStyle='#FFD700';X.font='bold 9px monospace';X.textAlign='center';
     X.fillText(f.t,f.x+4,f.y);
   }
   X.globalAlpha=1;
