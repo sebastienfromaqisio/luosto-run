@@ -106,7 +106,7 @@ const LVLS=[null,
   {name:'Ski de Fond : La Revanche',dist:6500,spd0:90,maxSpd:150,accel:0.007,gap:250,
    intro:['20 km de ski.','Plusieurs chutes.','Z\u00e9ro regret.'],
    sign:null,hasJoy:false,katSkis:true,bg:'forest',
-   obs:[{n:'bump',w:18,h:12,wt:4},{n:'branch',w:26,h:10,wt:3},{n:'skier',w:16,h:30,wt:1}],
+   obs:[{n:'bump',w:18,h:12,wt:3},{n:'branch',w:26,h:10,wt:3},{n:'skier',w:16,h:30,wt:2}],
    colPts:10,falls:3,
    vicTitle:'20 km !',
    vicText:['Distance : 20 km \u2713','Les courbatures arrivent demain.']},
@@ -135,7 +135,7 @@ const LVLS=[null,
 // ============ STATE ============
 let st='TITLE',score=0,dist=0,spd=80,dt=0,lastT=0,time=0,canIn=true;
 let lvl=1,totalScore=0;
-let fallsLeft=0,invT=0,bossOn=false,bossX=0,bossHit=false;
+let fallsLeft=0,invT=0,bossOn=false,bossX=0,bossHit=false,bossDir=1,bossTimer=0,bossInvT=0;
 let best=+(localStorage.getItem('luosto_best')||0);
 let savedLvl=+(localStorage.getItem('luosto_lvl')||1);
 
@@ -356,27 +356,45 @@ function update(){
   if(L.sign&&dist>=L.dist-350&&!signOn){signOn=true;signX=W+20;}
   if(signOn)signX-=spd*dt;
 
-  // Boss inspector (mine level end)
-  if(lvl===2&&dist>=L.dist-500&&!bossOn){bossOn=true;bossX=W+30;bossHit=false;}
-  if(bossOn&&!bossHit){
-    bossX-=spd*0.6*dt;
-    // Collision with boss (reduced hitbox)
-    const bw=20,bh=38,bbx=bossX+3,bby=GND-40+2;
-    const px=kat.x+kat.w*0.15,py=kat.y+kat.h*0.15,pw=kat.w*0.7,ph=kat.h*0.7;
-    if(px<bbx+bw*0.6&&px+pw>bbx&&py<bby+bh*0.6&&py+ph>bby){
-      bossHit=true;// touched = confiscation
+  // Boss fight (mine level - 30 sec phase at end)
+  if(lvl===2&&dist>=L.dist-100&&!bossOn){
+    bossOn=true;bossX=W+10;bossDir=-1;bossTimer=30;bossHit=false;bossInvT=0;
+  }
+  if(bossOn){
+    // Freeze scrolling during boss fight
+    if(dist>=L.dist-100)dist=L.dist-100;
+    bossTimer-=dt;
+    bossInvT=Math.max(0,bossInvT-dt);
+    // Boss moves back and forth
+    const bSpd=120+Math.max(0,30-bossTimer)*3;// gets faster over time
+    bossX+=bossDir*bSpd*dt;
+    if(bossX<-30){bossDir=1;bossX=-30;}
+    if(bossX>W+10){bossDir=-1;bossX=W+10;}
+    // Collision with boss
+    if(bossInvT<=0){
+      const bw=16,bh=35,bbx=bossX+4,bby=GND-40+3;
+      const px=kat.x+kat.w*0.15,py=kat.y+kat.h*0.15,pw=kat.w*0.7,ph=kat.h*0.7;
+      if(px<bbx+bw&&px+pw>bbx&&py<bby+bh&&py+ph>bby){
+        bossHit=true;sndHit();bossInvT=1.5;// hit! 1.5s invincibility
+      }
+    }
+    // Boss gives up after 30 seconds
+    if(bossTimer<=0){
+      bossOn=false;dist=L.dist;// trigger victory
     }
   }
 
-  // Victory (mine: confiscation only if boss touched)
+  // Victory
   if(dist>=L.dist){
-    if(lvl===2&&!bossHit){
-      // Escaped the boss! Keep all amethysts
-      st='VICTORY';sndWin();
-      totalScore+=score;
-      if(totalScore>best){best=totalScore;localStorage.setItem('luosto_best',best);}
-      localStorage.setItem('luosto_lvl',lvl+1);savedLvl=lvl+1;
-      canIn=false;setTimeout(()=>canIn=true,800);
+    if(lvl===2){
+      if(bossHit){doWin();}// confiscation
+      else{
+        // Escaped! Keep everything
+        st='VICTORY';sndWin();totalScore+=score;
+        if(totalScore>best){best=totalScore;localStorage.setItem('luosto_best',best);}
+        localStorage.setItem('luosto_lvl',lvl+1);savedLvl=lvl+1;
+        canIn=false;setTimeout(()=>canIn=true,800);
+      }
     }else{doWin();}
   }
 }
@@ -563,12 +581,23 @@ function drawObstacle(o){
     X.fillStyle='#E4ECF8';X.fillRect(o.x+6,o.y+2,o.w-12,3);
     X.fillStyle='#FFF';X.fillRect(o.x+7,o.y+1,o.w-14,1);
   }else if(o.n==='skier'){
-    // Slow skier
-    X.fillStyle='#CC4444';X.fillRect(o.x+4,o.y+4,8,12);// red jacket
-    X.fillStyle='#FFDDAA';X.fillRect(o.x+6,o.y+1,4,4);// head
-    X.fillStyle='#3D3D6B';X.fillRect(o.x+5,o.y+16,3,10);X.fillRect(o.x+9,o.y+16,3,10);// legs
-    X.fillStyle='#CC3333';X.fillRect(o.x+3,o.y+26,5,3);X.fillRect(o.x+9,o.y+26,5,3);// skis
-    X.fillStyle='#777';X.fillRect(o.x+3,o.y+6,1,16);// pole
+    // Slow skier (full body, front-facing like Kat)
+    // Head + bonnet (red)
+    X.fillStyle='#CC3333';X.fillRect(o.x+5,o.y,6,5);
+    X.fillStyle='#DD5555';X.fillRect(o.x+6,o.y+1,4,3);
+    X.fillStyle='#DDDDEE';X.fillRect(o.x+4,o.y+4,8,2);// rim
+    // Face
+    X.fillStyle='#FFDDAA';X.fillRect(o.x+5,o.y+5,6,5);
+    X.fillStyle='#334455';X.fillRect(o.x+6,o.y+7,1,1);X.fillRect(o.x+9,o.y+7,1,1);// eyes
+    // Red jacket
+    X.fillStyle='#CC4444';X.fillRect(o.x+4,o.y+10,8,10);
+    X.fillStyle='#BB3333';X.fillRect(o.x+4,o.y+10,2,10);X.fillRect(o.x+10,o.y+10,2,10);
+    // Legs
+    X.fillStyle='#3D3D6B';X.fillRect(o.x+5,o.y+20,3,7);X.fillRect(o.x+9,o.y+20,3,7);
+    // Skis
+    X.fillStyle='#CC3333';X.fillRect(o.x+3,o.y+26,5,3);X.fillRect(o.x+9,o.y+26,5,3);
+    // Pole
+    X.fillStyle='#777';X.fillRect(o.x+3,o.y+12,1,14);
   }else if(o.n==='huskyrun'){
     // Escaped husky crossing
     X.fillStyle='#DDD';X.fillRect(o.x+3,o.y+6,12,8);// body
@@ -940,6 +969,11 @@ function drawHUD(){
   X.textAlign='right';X.fillText('Score : '+score,W-5,12);
   X.fillStyle='rgba(255,255,255,0.2)';X.fillRect(5,17,80,3);
   X.fillStyle='rgba(255,255,255,0.6)';X.fillRect(5,17,Math.min(80,80*(dist/L.dist)),3);
+  // Boss timer (mine level)
+  if(bossOn&&lvl===2){
+    X.textAlign='center';X.fillStyle='#FF6666';X.font='bold 10px monospace';
+    X.fillText('\u00c9vite l\'inspectrice ! '+Math.ceil(bossTimer)+'s',W/2,12);
+  }
   // Falls hearts (level 3)
   if(L.falls){
     for(let i=0;i<L.falls;i++){
@@ -999,6 +1033,41 @@ function drawVictoryScreen(){
     X.fillText(txt,W/2,175);
   }
   X.textBaseline='alphabetic';
+}
+
+function drawHuskySled(x,y){
+  const f=(time*6|0)%2;// animation frame
+  // Rope from sled to Kat
+  X.fillStyle='#8B7755';X.fillRect(x+50,y+4,16,1);
+  // Sled runners
+  X.fillStyle='#5A3A1A';X.fillRect(x+38,y+10,14,2);X.fillRect(x+37,y+12,16,2);
+  X.fillStyle='#7B5A3A';X.fillRect(x+39,y+10,12,1);
+  // Husky 1 (front, gray/white)
+  const h1x=x,h1y=y-4;
+  X.fillStyle='#CCC';X.fillRect(h1x+3,h1y+2,10,6);// body
+  X.fillStyle='#999';X.fillRect(h1x+3,h1y+2,4,3);// dark marking
+  X.fillStyle='#CCC';X.fillRect(h1x,h1y,5,5);// head
+  X.fillStyle='#111';X.fillRect(h1x+1,h1y+2,1,1);// eye
+  X.fillRect(h1x-1,h1y+3,1,1);// nose
+  X.fillStyle='#CCC';// legs (animated)
+  if(f){X.fillRect(h1x+4,h1y+8,2,5);X.fillRect(h1x+10,h1y+7,2,6);}
+  else{X.fillRect(h1x+4,h1y+7,2,6);X.fillRect(h1x+10,h1y+8,2,5);}
+  // Husky 2 (back, brown/white)
+  const h2x=x+16,h2y=y-2;
+  X.fillStyle='#DDD';X.fillRect(h2x+3,h2y+2,10,6);// body
+  X.fillStyle='#AA7744';X.fillRect(h2x+3,h2y+2,5,3);// brown marking
+  X.fillStyle='#DDD';X.fillRect(h2x,h2y,5,5);// head
+  X.fillStyle='#111';X.fillRect(h2x+1,h2y+2,1,1);// eye
+  X.fillRect(h2x-1,h2y+3,1,1);// nose
+  X.fillStyle='#DDD';
+  if(f){X.fillRect(h2x+4,h2y+7,2,6);X.fillRect(h2x+10,h2y+8,2,5);}
+  else{X.fillRect(h2x+4,h2y+8,2,5);X.fillRect(h2x+10,h2y+7,2,6);}
+  // Harness ropes
+  X.fillStyle='#8B7755';
+  X.fillRect(h1x+12,h1y+5,6,1);X.fillRect(h2x+12,h2y+5,26-h2x+x+38,1);
+  // Tail wag (husky 1)
+  X.fillStyle='#CCC';
+  if(f){X.fillRect(h1x+12,h1y+1,2,3);}else{X.fillRect(h1x+12,h1y+3,2,3);}
 }
 
 function drawBoss(bx){
@@ -1135,8 +1204,12 @@ function draw(){
   if(signOn&&L.sign)drawSign(signX);
   // Boss inspector (mine level)
   if(bossOn)drawBoss(bossX);
-  // Joy
-  if(L.hasJoy)drawJoySled(kat.x-36,joy.y,joy.tf,joy.wouf);
+  // Husky sled (level 4) or Joy sled
+  if(lvl===4){
+    drawHuskySled(kat.x-55,GND-18);
+  }else if(L.hasJoy){
+    drawJoySled(kat.x-36,joy.y,joy.tf,joy.wouf);
+  }
   // Kat (blink during invincibility)
   if(invT<=0||(time*10|0)%2===0){
     drawKat(kat.x,kat.y,kat.fr,!kat.gnd);
