@@ -51,12 +51,41 @@ window.addEventListener('orientationchange',()=>{setTimeout(resize,150);setTimeo
 if(window.visualViewport)window.visualViewport.addEventListener('resize',resize);
 resize();
 
+// ============ SOUND (Web Audio) ============
+let actx=null,sndOn=true;
+function initAudio(){if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();}
+function beep(freq,dur,type,vol){
+  if(!sndOn||!actx)return;
+  try{if(actx.state==='suspended')actx.resume();
+  const o=actx.createOscillator(),g=actx.createGain();
+  o.type=type||'square';o.frequency.value=freq;g.gain.value=vol||0.08;
+  o.connect(g);g.connect(actx.destination);o.start();
+  g.gain.exponentialRampToValueAtTime(0.001,actx.currentTime+dur);
+  o.stop(actx.currentTime+dur);}catch(e){}}
+function sndJump(){beep(440,0.07,'square',0.06);}
+function sndCollect(){beep(880,0.1,'sine',0.08);setTimeout(()=>beep(1100,0.08,'sine',0.06),50);}
+function sndHit(){beep(200,0.15,'sawtooth',0.08);setTimeout(()=>beep(150,0.2,'sawtooth',0.06),100);}
+function sndWin(){beep(523,0.1,'sine',0.08);setTimeout(()=>beep(659,0.1,'sine',0.08),100);setTimeout(()=>beep(784,0.15,'sine',0.1),200);}
+
 // ============ CONSTANTS ============
-const GND=185, GRAV=700, JMPV=-290, SPD0=80, GAP=260, LVLEND=6000, PKX=60;
+const GND=185, GRAV=700, JMPV=-290, PKX=60;
+
+// ============ LEVEL CONFIGS ============
+const LVLS=[null,
+  {name:'La Balade en For\u00eat',dist:6000,spd0:80,maxSpd:140,accel:0.008,gap:260,
+   intro:['Jour 1 \u00e0 Luosto.','La neige est \u00e9paisse, les sapins immenses,','et Joy a d\u00e9cid\u00e9 que marcher,',"c'est pour les chiens ordinaires."],
+   sign:'MINE \u2192',hasJoy:true,katSkis:true,bg:'forest',
+   obs:[{n:'branch',w:26,h:10,wt:4},{n:'mound',w:20,h:16,wt:3},{n:'reindeer',w:22,h:28,wt:1}],
+   colPts:10,
+   vicTitle:'For\u00eat travers\u00e9e !',
+   vicText:['La balade touche \u00e0 sa fin.',"Au loin, l'entr\u00e9e de la mine d'am\u00e9thyste...",'Joy dort d\u00e9j\u00e0 dans sa luge.']},
+];
 
 // ============ STATE ============
-let st='TITLE',score=0,dist=0,spd=SPD0,dt=0,lastT=0,time=0,canIn=true;
+let st='TITLE',score=0,dist=0,spd=80,dt=0,lastT=0,time=0,canIn=true;
+let lvl=1,totalScore=0;
 let best=+(localStorage.getItem('luosto_best')||0);
+let savedLvl=+(localStorage.getItem('luosto_lvl')||1);
 
 // Player
 let kat={x:PKX,y:GND-48,w:32,h:48,vy:0,gnd:true,jc:0,fr:0,ft:0};
@@ -101,11 +130,16 @@ mkSnow();
 // ============ INPUT ============
 function onPress(){
   if(!canIn)return;
+  initAudio();
   if(st==='TITLE'){startGame();return;}
   if(st==='INTRO'){st='PLAY';return;}
-  if(st==='GAMEOVER'){startGame();return;}
-  if(st==='VICTORY'){startGame();return;}
-  if(st==='PLAY'&&kat.jc<2){kat.vy=JMPV;kat.gnd=false;kat.jc++;}
+  if(st==='GAMEOVER'){startLevel(lvl);return;}
+  if(st==='VICTORY'){
+    if(lvl<LVLS.length-1){startLevel(lvl+1);}
+    else{st='TITLE';}
+    return;
+  }
+  if(st==='PLAY'&&kat.jc<2){kat.vy=JMPV;kat.gnd=false;kat.jc++;sndJump();}
 }
 document.addEventListener('keydown',e=>{
   if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();onPress();}
@@ -116,8 +150,9 @@ tap.addEventListener('touchend',e=>{e.preventDefault();},{passive:false});
 tap.addEventListener('mousedown',e=>{e.preventDefault();onPress();});
 
 // ============ GAME LIFECYCLE ============
-function startGame(){
-  st='INTRO';score=0;dist=0;spd=SPD0;
+function startLevel(n){
+  lvl=n;const L=LVLS[lvl];if(!L)return;
+  st='INTRO';score=0;dist=0;spd=L.spd0;
   kat={x:PKX,y:GND-48,w:32,h:48,vy:0,gnd:true,jc:0,fr:0,ft:0};
   joy={tf:0,tt:0,wouf:false,wt:0,wcd:5+Math.random()*10,y:GND-16};
   jyBuf=[];obs=[];cols=[];ftxts=[];
@@ -125,26 +160,30 @@ function startGame(){
   signOn=false;signX=W+20;bgO=[0,0,0];
   canIn=false;setTimeout(()=>canIn=true,400);
 }
+function startGame(){initAudio();startLevel(1);totalScore=0;}
+function continueGame(){initAudio();startLevel(savedLvl);totalScore=0;}
 function doGO(){
-  st='GAMEOVER';
-  if(score>best){best=score;localStorage.setItem('luosto_best',best);}
+  st='GAMEOVER';sndHit();
+  const ts=totalScore+score;
+  if(ts>best){best=ts;localStorage.setItem('luosto_best',best);}
   canIn=false;setTimeout(()=>canIn=true,500);
 }
 function doWin(){
-  st='VICTORY';
-  if(score>best){best=score;localStorage.setItem('luosto_best',best);}
+  st='VICTORY';sndWin();
+  totalScore+=score;
+  if(totalScore>best){best=totalScore;localStorage.setItem('luosto_best',best);}
+  if(lvl<LVLS.length-1){
+    localStorage.setItem('luosto_lvl',lvl+1);savedLvl=lvl+1;
+  }
   canIn=false;setTimeout(()=>canIn=true,800);
 }
 
 // ============ OBSTACLE TYPES ============
-const OT=[
-  {n:'branch',w:26,h:10,wt:4},
-  {n:'mound',w:20,h:16,wt:3},
-  {n:'reindeer',w:22,h:28,wt:1},
-];
 function pickOT(){
-  let tot=OT.reduce((s,t)=>s+t.wt,0),r=Math.random()*tot;
-  for(const t of OT){r-=t.wt;if(r<=0)return t;}return OT[0];
+  const L=LVLS[lvl];if(!L)return{n:'branch',w:26,h:10};
+  const ot=L.obs;
+  let tot=ot.reduce((s,t)=>s+t.wt,0),r=Math.random()*tot;
+  for(const t of ot){r-=t.wt;if(r<=0)return t;}return ot[0];
 }
 
 // ============ UPDATE ============
@@ -158,7 +197,8 @@ function update(){
 
   if(st!=='PLAY')return;
 
-  spd=Math.min(SPD0+dist*0.008,140);
+  const L=LVLS[lvl];
+  spd=Math.min(L.spd0+dist*L.accel,L.maxSpd);
   dist+=spd*dt;
   bgO[0]+=spd*0.2*dt;bgO[1]+=spd*0.5*dt;bgO[2]+=spd*0.8*dt;
 
@@ -185,13 +225,13 @@ function update(){
   if(joy.wouf){joy.wt-=dt;if(joy.wt<=0)joy.wouf=false;}
 
   // Spawn obstacles
-  if(dist>=nxObs&&dist<LVLEND-300){
+  if(dist>=nxObs&&dist<L.dist-300){
     const t=pickOT();
     obs.push({x:W+10,y:GND-t.h,w:t.w,h:t.h,n:t.n});
-    nxObs=dist+GAP+Math.random()*100;
+    nxObs=dist+L.gap+Math.random()*100;
   }
   // Spawn collectibles
-  if(dist>=nxCol&&dist<LVLEND-200){
+  if(dist>=nxCol&&dist<L.dist-200){
     const air=Math.random()<0.35;
     cols.push({x:W+10,y:air?GND-50-Math.random()*30:GND-18,w:8,h:8});
     nxCol=dist+130+Math.random()*160;
@@ -214,8 +254,8 @@ function update(){
   for(let i=cols.length-1;i>=0;i--){
     const c=cols[i];
     if(kat.x<c.x+c.w&&kat.x+kat.w>c.x&&kat.y<c.y+c.h&&kat.y+kat.h>c.y){
-      score+=10;
-      ftxts.push({x:c.x,y:c.y,t:'+10',life:0.8});
+      score+=L.colPts;sndCollect();
+      ftxts.push({x:c.x,y:c.y,t:'+'+L.colPts,life:0.8});
       cols.splice(i,1);
     }
   }
@@ -225,11 +265,11 @@ function update(){
   ftxts=ftxts.filter(f=>f.life>0);
 
   // Sign
-  if(dist>=LVLEND-350&&!signOn){signOn=true;signX=W+20;}
+  if(L.sign&&dist>=L.dist-350&&!signOn){signOn=true;signX=W+20;}
   if(signOn)signX-=spd*dt;
 
   // Victory
-  if(dist>=LVLEND)doWin();
+  if(dist>=L.dist)doWin();
 }
 
 // ============ SPRITE DRAWING ============
@@ -433,8 +473,9 @@ function drawSign(sx){
   X.fillStyle='#AA8844';
   X.fillRect(sx,sy,32,1);X.fillRect(sx,sy+15,32,1);
   X.fillRect(sx,sy,1,16);X.fillRect(sx+31,sy,1,16);
+  const L=LVLS[lvl];
   X.fillStyle='#4A2A0A';X.font='bold 7px monospace';X.textAlign='center';
-  X.fillText('MINE \u2192',sx+16,sy+10);
+  X.fillText(L.sign||'',sx+16,sy+10);
 }
 
 // Kat sitting (game over)
@@ -618,46 +659,44 @@ function drawTitleScreen(){
     X.font='bold 8px monospace';X.fillStyle='#FFF';
     X.fillText('APPUIE POUR COMMENCER',W/2,H-28);
   }
+  if(savedLvl>1){
+    X.font='6px monospace';X.fillStyle='#AABBCC';
+    X.fillText('Progression sauvegard\u00e9e : niveau '+savedLvl,W/2,H-18);
+  }
 
   X.font='6px monospace';X.fillStyle='#667799';
-  X.fillText('Enfin un brain-rot digne de ce nom \uD83D\uDC3E',W/2,H-12);
+  X.fillText('Enfin un brain-rot digne de ce nom \uD83D\uDC3E',W/2,H-8);
 
   drawSnow();
   X.textBaseline='alphabetic';
 }
 
 function drawIntroScreen(){
-  // Background
   drawSky();drawMtns();drawHills();drawGround();drawTrees();drawSnow();
-
-  // Overlay
   X.fillStyle='rgba(10,15,30,0.82)';X.fillRect(0,0,W,H);
-
   X.textAlign='center';X.textBaseline='middle';
-
+  const L=LVLS[lvl];
   X.fillStyle='#FFD700';X.font='bold 14px monospace';
-  X.fillText('La Balade en For\u00eat',W/2,45);
-
+  X.fillText(L.name,W/2,40);
+  X.font='8px monospace';X.fillStyle='#AABBCC';
+  X.fillText('Niveau '+lvl,W/2,56);
   X.font='7px monospace';X.fillStyle='#CCDDEE';
-  X.fillText('Jour 1 \u00e0 Luosto.',W/2,80);
-  X.fillText('La neige est \u00e9paisse, les sapins immenses,',W/2,96);
-  X.fillText('et Joy a d\u00e9cid\u00e9 que marcher,',W/2,110);
-  X.fillText("c'est pour les chiens ordinaires.",W/2,124);
-
+  const lines=L.intro;
+  for(let i=0;i<lines.length;i++)X.fillText(lines[i],W/2,80+i*15);
   if((time*2|0)%2===0){
     X.font='bold 7px monospace';X.fillStyle='#FFF';
-    X.fillText('APPUIE POUR COMMENCER',W/2,165);
+    X.fillText('APPUIE POUR COMMENCER',W/2,170);
   }
   X.textBaseline='alphabetic';
 }
 
 function drawHUD(){
+  const L=LVLS[lvl];
   X.font='bold 7px monospace';X.textAlign='left';X.fillStyle='#FFF';
-  X.fillText('La Balade en For\u00eat',5,12);
+  X.fillText(L.name,5,12);
   X.textAlign='right';X.fillText('Score : '+score,W-5,12);
-  // Progress bar
   X.fillStyle='rgba(255,255,255,0.2)';X.fillRect(5,17,80,3);
-  X.fillStyle='rgba(255,255,255,0.6)';X.fillRect(5,17,Math.min(80,80*(dist/LVLEND)),3);
+  X.fillStyle='rgba(255,255,255,0.6)';X.fillRect(5,17,Math.min(80,80*(dist/L.dist)),3);
 }
 
 const GOMSG=[
@@ -683,21 +722,21 @@ function drawGameOverScreen(){
 }
 
 function drawVictoryScreen(){
+  const L=LVLS[lvl];
   X.fillStyle='rgba(10,20,40,0.82)';X.fillRect(0,0,W,H);
   X.textAlign='center';X.textBaseline='middle';
   X.fillStyle='#FFD700';X.font='bold 13px monospace';
-  X.fillText('For\u00eat travers\u00e9e !',W/2,40);
+  X.fillText(L.vicTitle,W/2,35);
   X.font='7px monospace';X.fillStyle='#CCDDEE';
-  X.fillText('La balade touche \u00e0 sa fin.',W/2,70);
-  X.fillText("Au loin, l'entr\u00e9e de la mine d'am\u00e9thyste...",W/2,86);
-  X.fillText('Joy dort d\u00e9j\u00e0 dans sa luge.',W/2,102);
+  for(let i=0;i<L.vicText.length;i++)X.fillText(L.vicText[i],W/2,65+i*16);
   X.fillStyle='#FFD700';X.font='bold 8px monospace';
-  X.fillText('Score : '+score,W/2,128);
+  X.fillText('Score : '+score,W/2,125);
   X.font='7px monospace';X.fillStyle='#AABBCC';
-  X.fillText('Meilleur : '+best,W/2,142);
+  X.fillText('Meilleur : '+best,W/2,140);
   if((time*2|0)%2===0){
     X.font='bold 8px monospace';X.fillStyle='#FFF';
-    X.fillText('APPUIE POUR CONTINUER',W/2,175);
+    const txt=lvl<LVLS.length-1?'NIVEAU SUIVANT':'REJOUER';
+    X.fillText(txt,W/2,175);
   }
   X.textBaseline='alphabetic';
 }
