@@ -21,31 +21,31 @@ const C=document.getElementById('g'),X=C.getContext('2d');
 const W=400,H=225;
 C.width=W;C.height=H;
 
-// Resize (auto-rotate in portrait)
+// Resize (auto-rotate in portrait to fill screen)
 function resize(){
   const vw=window.innerWidth,vh=window.innerHeight;
   const portrait=vh>vw;
   if(portrait){
-    // Rotate canvas to landscape in portrait mode
+    // Rotate: game width fills screen height, game height fills screen width
     const s=Math.min(vw/H,vh/W);
-    C.style.width=(W*s|0)+'px';
-    C.style.height=(H*s|0)+'px';
+    const cw=W*s|0,ch=H*s|0;
+    C.style.width=cw+'px';
+    C.style.height=ch+'px';
     C.style.position='fixed';
-    C.style.left='50%';
-    C.style.top='50%';
-    C.style.transform='translate(-50%,-50%) rotate(90deg)';
+    C.style.left=((vw-cw)/2|0)+'px';
+    C.style.top=((vh-ch)/2|0)+'px';
+    C.style.transform='rotate(90deg)';
+    C.style.transformOrigin='center center';
   }else{
     const s=Math.min(vw/W,vh/H);
     C.style.width=(W*s|0)+'px';
     C.style.height=(H*s|0)+'px';
-    C.style.position='';
-    C.style.left='';
-    C.style.top='';
-    C.style.transform='';
+    C.style.position='';C.style.left='';C.style.top='';
+    C.style.transform='';C.style.transformOrigin='';
   }
 }
 window.addEventListener('resize',resize);
-window.addEventListener('orientationchange',resize);
+window.addEventListener('orientationchange',()=>setTimeout(resize,100));
 resize();
 
 // ============ CONSTANTS ============
